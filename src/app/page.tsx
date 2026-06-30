@@ -1,5 +1,7 @@
-import { IconSettings, IconCamera } from "@tabler/icons-react";
+import { IconCamera, IconLogout } from "@tabler/icons-react";
 import MealCard from "@/components/MealCard";
+import { createClient } from "@/lib/supabase/server";
+import { signOut } from "@/app/actions/auth";
 
 const GOAL_CALORIES = 2000;
 
@@ -29,8 +31,11 @@ function getTodayLabel() {
   return { dateStr, dayStr };
 }
 
-export default function Home() {
+export default async function Home() {
   const { dateStr, dayStr } = getTodayLabel();
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
   const totalCalories = Object.values(MOCK_MEALS)
     .flat()
@@ -47,9 +52,24 @@ export default function Home() {
           <span className="text-2xl">🍅</span>
           <span className="text-xl font-bold text-tomato tracking-tight">또마또</span>
         </div>
-        <button className="w-9 h-9 rounded-full hover:bg-zinc-100 flex items-center justify-center text-zinc-400 transition-colors">
-          <IconSettings size={18} />
-        </button>
+        <div className="flex items-center gap-2">
+          {user?.user_metadata?.avatar_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={user.user_metadata.avatar_url}
+              alt="프로필"
+              className="w-8 h-8 rounded-full object-cover"
+            />
+          )}
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="w-9 h-9 rounded-full hover:bg-zinc-100 flex items-center justify-center text-zinc-400 transition-colors"
+            >
+              <IconLogout size={18} />
+            </button>
+          </form>
+        </div>
       </header>
 
       <main className="flex-1 max-w-lg w-full mx-auto px-4 pt-5 pb-36 space-y-4">

@@ -22,7 +22,7 @@ const MEAL_META = {
   SNACK: { label: "간식", Icon: IconCup, iconBg: "bg-emerald-50", iconColor: "text-emerald-500" },
 } as const;
 
-export default function MealCard({ type, items }: MealCardProps) {
+export default function MealCard({ type, items = [] }: MealCardProps) {
   const { label, Icon, iconBg, iconColor } = MEAL_META[type];
   const totalCalories = items.reduce((sum, item) => sum + item.calories, 0);
   const isEmpty = items.length === 0;
