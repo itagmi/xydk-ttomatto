@@ -96,10 +96,12 @@ export default function MealSection({ meals }: { meals: MealsData }) {
     }
   }
 
-  function updateEditedCalories(index: number, value: string) {
+  function updateEditedField(index: number, field: "name" | "calories", value: string) {
     if (drawer.step !== "result") return;
     const updated = drawer.edited.map((f, i) =>
-      i === index ? { ...f, calories: Number(value) || 0 } : f
+      i === index
+        ? { ...f, [field]: field === "calories" ? Number(value) || 0 : value }
+        : f
     );
     setDrawer({ ...drawer, edited: updated });
   }
@@ -203,14 +205,19 @@ export default function MealSection({ meals }: { meals: MealsData }) {
                     {drawer.edited.map((food, i) => (
                       <li
                         key={i}
-                        className="flex items-center justify-between bg-zinc-50 rounded-xl px-3 py-2.5"
+                        className="flex items-center justify-between bg-zinc-50 rounded-xl px-3 py-2.5 gap-2"
                       >
-                        <span className="text-sm text-zinc-700 flex-1 mr-3">{food.name}</span>
+                        <input
+                          type="text"
+                          value={food.name}
+                          onChange={(e) => updateEditedField(i, "name", e.target.value)}
+                          className="flex-1 text-sm text-zinc-700 bg-transparent outline-none border-b border-zinc-300 focus:border-tomato min-w-0"
+                        />
                         <div className="flex items-center gap-1 shrink-0">
                           <input
                             type="number"
                             value={food.calories}
-                            onChange={(e) => updateEditedCalories(i, e.target.value)}
+                            onChange={(e) => updateEditedField(i, "calories", e.target.value)}
                             className="w-16 text-right text-sm font-medium text-zinc-800 bg-transparent outline-none border-b border-zinc-300 focus:border-tomato"
                           />
                           <span className="text-xs text-zinc-400">kcal</span>
