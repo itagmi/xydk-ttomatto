@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  authId    String   @unique
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  diaryEntries DiaryEntry[]
+  foods        Food[]
+
+  @@index([authId])
+}
+
+model DiaryEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime @db.Date
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  meals Meal[]
+
+  @@unique([userId, date])
+  @@index([userId, date])
+}
+
+model Meal {
+  id           String   @id @default(cuid())
+  diaryEntryId String
+  mealType     MealType
+  name         String?
+  eatenAt      DateTime?
+  createdAt    DateTime @default(now())
+
+  diaryEntry DiaryEntry @relation(fields: [diaryEntryId], references: [id], onDelete: Cascade)
+  mealFoods  MealFood[]
+
+  @@index([diaryEntryId])
+}
+
+model Food {
+  id          String  @id @default(cuid())
+  userId      String?
+  name        String
+  brand       String?
+  servingSize Float
+  servingUnit String  @default("g")
+  calories    Float
+  protein     Float   @default(0)
+  carbs       Float   @default(0)
+  fat         Float   @default(0)
+  fiber       Float   @default(0)
+  sugar       Float   @default(0)
+  sodium      Float   @default(0)
+  isPublic    Boolean @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  mealFoods MealFood[]
+
+  @@index([userId])
+  @@index([name])
+}
+
+model MealFood {
+  id       String @id @default(cuid())
+  mealId   String
+  foodId   String
+  amount   Float
+  unit     String @default("g")
+
+  meal Meal @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  food Food @relation(fields: [foodId], references: [id], onDelete: Restrict)
+
+  @@index([mealId])
+  @@index([foodId])
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+}
