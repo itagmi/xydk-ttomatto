@@ -1,24 +1,13 @@
-import { IconCamera, IconLogout } from "@tabler/icons-react";
-import MealCard from "@/components/MealCard";
+import { IconLogout } from "@tabler/icons-react";
+import MealSection from "@/components/MealSection";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/actions/auth";
+import { getTodayMeals } from "@/app/actions/meal";
 
 const GOAL_CALORIES = 2000;
 
-const MOCK_MEALS = {
-  BREAKFAST: [
-    { name: "현미밥 1공기", calories: 290 },
-    { name: "된장찌개", calories: 110 },
-    { name: "계란후라이", calories: 90 },
-  ],
-  LUNCH: [
-    { name: "제육볶음 정식", calories: 620 },
-  ],
-  DINNER: [] as { name: string; calories: number }[],
-  SNACK: [
-    { name: "아몬드 한 줌", calories: 170 },
-  ],
-};
+type MealType = "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK";
+type MealItem = { name: string; calories: number };
 
 function getTodayLabel() {
   const now = new Date();
@@ -35,9 +24,29 @@ export default async function Home() {
   const { dateStr, dayStr } = getTodayLabel();
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const totalCalories = Object.values(MOCK_MEALS)
+  const diary = await getTodayMeals();
+
+  const meals: Record<MealType, MealItem[]> = {
+    BREAKFAST: [],
+    LUNCH: [],
+    DINNER: [],
+    SNACK: [],
+  };
+
+  if (diary) {
+    for (const meal of diary.meals) {
+      meals[meal.mealType as MealType] = meal.mealFoods.map((mf) => ({
+        name: mf.food.name,
+        calories: mf.food.calories,
+      }));
+    }
+  }
+
+  const totalCalories = Object.values(meals)
     .flat()
     .reduce((sum, item) => sum + item.calories, 0);
 
@@ -96,26 +105,12 @@ export default async function Home() {
           </div>
           <div className="flex justify-between mt-2 text-xs text-white/70">
             <span>목표 {GOAL_CALORIES.toLocaleString()} kcal까지</span>
-            <span>{remaining.toLocaleString()} kcal 남음</span>
+            <span>{remaining > 0 ? `${remaining.toLocaleString()} kcal 남음` : "목표 달성!"}</span>
           </div>
         </div>
 
-        {/* 끼니 카드들 */}
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-zinc-500 px-1">끼니 기록</h2>
-          <MealCard type="BREAKFAST" items={MOCK_MEALS.BREAKFAST} />
-          <MealCard type="LUNCH" items={MOCK_MEALS.LUNCH} />
-          <MealCard type="DINNER" items={MOCK_MEALS.DINNER} />
-          <MealCard type="SNACK" items={MOCK_MEALS.SNACK} />
-        </section>
-
-        {/* 끼니 사진 추가 */}
-        <button className="w-full border-2 border-dashed border-tomato-muted rounded-2xl py-4 flex flex-col items-center gap-1.5 text-tomato hover:bg-tomato-light transition-colors group">
-          <span className="w-10 h-10 rounded-full bg-tomato-light group-hover:bg-tomato-muted flex items-center justify-center transition-colors">
-            <IconCamera size={20} />
-          </span>
-          <span className="text-sm font-medium">끼니 사진 추가하기</span>
-        </button>
+        {/* 끼니 카드들 + 업로드 드로어 */}
+        <MealSection meals={meals} />
       </main>
 
       {/* 하단 고정 버튼 */}

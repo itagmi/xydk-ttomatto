@@ -1,3 +1,5 @@
+"use client";
+
 import {
   IconCoffee,
   IconSoup,
@@ -13,6 +15,7 @@ type MealItem = {
 type MealCardProps = {
   type: "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK";
   items: MealItem[];
+  onAdd?: () => void;
 };
 
 const MEAL_META = {
@@ -22,7 +25,7 @@ const MEAL_META = {
   SNACK: { label: "간식", Icon: IconCup, iconBg: "bg-emerald-50", iconColor: "text-emerald-500" },
 } as const;
 
-export default function MealCard({ type, items = [] }: MealCardProps) {
+export default function MealCard({ type, items = [], onAdd }: MealCardProps) {
   const { label, Icon, iconBg, iconColor } = MEAL_META[type];
   const totalCalories = items.reduce((sum, item) => sum + item.calories, 0);
   const isEmpty = items.length === 0;
@@ -56,7 +59,10 @@ export default function MealCard({ type, items = [] }: MealCardProps) {
         </ul>
       )}
 
-      <button className="mt-3 w-full text-xs text-zinc-400 hover:text-tomato transition-colors text-left pl-1 flex items-center gap-1">
+      <button
+        onClick={onAdd}
+        className="mt-3 w-full text-xs text-zinc-400 hover:text-tomato transition-colors text-left pl-1 flex items-center gap-1"
+      >
         <span className="text-base leading-none">+</span>
         <span>음식 추가</span>
       </button>

@@ -37,16 +37,18 @@ model DiaryEntry {
 }
 
 model Meal {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   diaryEntryId String
   mealType     MealType
   name         String?
+  imageUrl     String?
   eatenAt      DateTime?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
 
   diaryEntry DiaryEntry @relation(fields: [diaryEntryId], references: [id], onDelete: Cascade)
   mealFoods  MealFood[]
 
+  @@unique([diaryEntryId, mealType])
   @@index([diaryEntryId])
 }
 
