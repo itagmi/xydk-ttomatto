@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- 토마토 몸통 -->
+  <circle cx="16" cy="20" r="11" fill="#E8353A"/>
+  <!-- 하이라이트 -->
+  <ellipse cx="12" cy="15" rx="3.5" ry="2.5" fill="#FF7B7B" opacity="0.5"/>
+  <!-- 줄기 -->
+  <rect x="15" y="5" width="2" height="6" rx="1" fill="#2D8A2D"/>
+  <!-- 왼쪽 잎 -->
+  <ellipse cx="11.5" cy="9" rx="4.5" ry="1.8" fill="#34A234" transform="rotate(-35 11.5 9)"/>
+  <!-- 오른쪽 잎 -->
+  <ellipse cx="20.5" cy="9" rx="4.5" ry="1.8" fill="#34A234" transform="rotate(35 20.5 9)"/>
+</svg>
