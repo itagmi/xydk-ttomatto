@@ -71,6 +71,7 @@ export async function estimateFoodCalories(
 export async function saveMealAnalysis(data: {
   mealType: MealType;
   foods: { name: string; calories: number; quantity: number }[];
+  imageUrl?: string;
 }) {
   const dbUser = await getOrCreateDbUser();
   const today = todayUtcMidnight();
@@ -88,8 +89,8 @@ export async function saveMealAnalysis(data: {
         mealType: data.mealType,
       },
     },
-    update: {},
-    create: { diaryEntryId: diary.id, mealType: data.mealType },
+    update: data.imageUrl ? { imageUrl: data.imageUrl } : {},
+    create: { diaryEntryId: diary.id, mealType: data.mealType, imageUrl: data.imageUrl },
   });
 
   await prisma.mealFood.deleteMany({ where: { mealId: meal.id } });

@@ -20,6 +20,7 @@ type MealsData = Record<MealType, MealItem[]>;
 type AnalysisResult = {
   foods: { name: string; calories: number }[];
   totalCalories: number;
+  imageUrl?: string;
 };
 
 type EditedFood = {
@@ -35,7 +36,7 @@ type DrawerState =
   | { step: "closed" }
   | { step: "pick"; mealType: MealType }
   | { step: "analyzing"; mealType: MealType; preview: string }
-  | { step: "result"; mealType: MealType; preview: string; edited: EditedFood[] }
+  | { step: "result"; mealType: MealType; preview: string; imageUrl?: string; edited: EditedFood[] }
   | { step: "manual"; mealType: MealType; edited: EditedFood[] }
   | { step: "editing"; mealType: MealType; edited: EditedFood[] }
   | { step: "saving"; mealType: MealType }
@@ -273,6 +274,7 @@ export default function MealSection({ meals }: { meals: MealsData }) {
         step: "result",
         mealType,
         preview,
+        imageUrl: result.imageUrl,
         edited: result.foods.map((f) => ({
           name: f.name,
           calories: f.calories,
@@ -357,6 +359,7 @@ export default function MealSection({ meals }: { meals: MealsData }) {
       await action({
         mealType,
         foods: edited.map((f) => ({ name: f.name, calories: f.calories, quantity: f.quantity })),
+        imageUrl: drawer.step === "result" ? drawer.imageUrl : undefined,
       });
       closeDrawer();
     } catch {

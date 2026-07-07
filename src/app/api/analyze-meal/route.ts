@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { put } from "@vercel/blob";
 import { createClient } from "@/lib/supabase/server";
 
 const client = new Anthropic();
@@ -25,6 +26,19 @@ export async function POST(request: NextRequest) {
   const mediaType = (
     imageFile.type?.startsWith("image/") ? imageFile.type : "image/jpeg"
   ) as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+
+  // Blob에 사진 저장
+  let imageUrl: string | undefined;
+  try {
+    const ext = mediaType.split("/")[1] ?? "jpg";
+    const blob = await put(`meals/${user.id}/${Date.now()}.${ext}`, Buffer.from(bytes), {
+      access: "public",
+      contentType: mediaType,
+    });
+    imageUrl = blob.url;
+  } catch {
+    // 업로드 실패해도 분석은 계속
+  }
 
   const response = await client.messages.create({
     model: "claude-opus-4-8",
@@ -62,7 +76,7 @@ export async function POST(request: NextRequest) {
   try {
     const match = textBlock.text.match(/\{[\s\S]*\}/);
     const result = JSON.parse(match ? match[0] : textBlock.text);
-    return Response.json(result);
+    return Response.json({ ...result, imageUrl });
   } catch {
     return Response.json({ error: "AI 응답 형식 오류" }, { status: 500 });
   }
