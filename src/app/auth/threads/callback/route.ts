@@ -10,14 +10,17 @@ export async function GET(request: NextRequest) {
   const error = request.nextUrl.searchParams.get("error");
 
   if (error || !code) {
+    console.error("[threads/callback] error param:", error);
     return Response.redirect(`${APP_URL}/?error=threads_auth`);
   }
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
+    console.error("[threads/callback] no supabase user");
     return Response.redirect(`${APP_URL}/auth/login`);
   }
+  console.log("[threads/callback] user:", user.id);
 
   // 단기 토큰 교환
   const tokenRes = await fetch("https://graph.threads.net/oauth/access_token", {
@@ -33,6 +36,7 @@ export async function GET(request: NextRequest) {
   });
 
   const tokenData = await tokenRes.json();
+  console.log("[threads/callback] tokenData:", JSON.stringify(tokenData));
   if (!tokenData.access_token) {
     return Response.redirect(`${APP_URL}/?error=threads_token`);
   }
