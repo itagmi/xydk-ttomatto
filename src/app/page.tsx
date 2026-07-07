@@ -26,14 +26,14 @@ export default async function Home() {
   const { dateStr, dayStr } = getTodayLabel();
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  const [diary, { connected: threadsConnected }] = await Promise.all([
+  const [diary, threadsResult] = await Promise.all([
     getTodayMeals(),
-    getThreadsStatus(),
+    getThreadsStatus().catch(() => ({ connected: false })),
   ]);
+
+  const threadsConnected = threadsResult.connected;
 
   const meals: Record<MealType, MealItem[]> = {
     BREAKFAST: [],
@@ -42,12 +42,21 @@ export default async function Home() {
     SNACK: [],
   };
 
+  const mealImages: Record<MealType, string | null> = {
+    BREAKFAST: null,
+    LUNCH: null,
+    DINNER: null,
+    SNACK: null,
+  };
+
   if (diary) {
     for (const meal of diary.meals) {
-      meals[meal.mealType as MealType] = meal.mealFoods.map((mf) => ({
+      const type = meal.mealType as MealType;
+      meals[type] = meal.mealFoods.map((mf) => ({
         name: mf.food.name,
         calories: Math.round(mf.food.calories * mf.amount),
       }));
+      mealImages[type] = meal.imageUrl ?? null;
     }
   }
 
@@ -114,8 +123,8 @@ export default async function Home() {
           </div>
         </div>
 
-        {/* 끼니 카드들 + 업로드 드로어 */}
-        <MealSection meals={meals} />
+        {/* 끼니 카드들 */}
+        <MealSection meals={meals} mealImages={mealImages} />
       </main>
 
       {/* 하단 고정 버튼 */}
@@ -124,6 +133,7 @@ export default async function Home() {
           <DailyCloseButton
             threadsConnected={threadsConnected}
             meals={meals}
+            mealImages={mealImages}
             totalCalories={totalCalories}
           />
         </div>

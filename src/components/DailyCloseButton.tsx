@@ -19,10 +19,12 @@ type State =
 export default function DailyCloseButton({
   threadsConnected,
   meals,
+  mealImages,
   totalCalories,
 }: {
   threadsConnected: boolean;
   meals: MealsData;
+  mealImages?: Record<MealType, string | null>;
   totalCalories: number;
 }) {
   const [state, setState] = useState<State>({ step: "idle" });
@@ -113,6 +115,20 @@ export default function DailyCloseButton({
                   onChange={(e) => setState({ step: "preview", text: e.target.value })}
                   className="w-full bg-zinc-50 rounded-2xl p-4 text-sm text-zinc-800 leading-relaxed resize-none outline-none focus:ring-2 focus:ring-tomato/30 min-h-[120px]"
                 />
+                {mealImages && (() => {
+                  const images = Object.values(mealImages).filter((u): u is string => !!u);
+                  return images.length > 0 ? (
+                    <div className="mt-3">
+                      <p className="text-xs text-zinc-400 mb-2">함께 올라갈 사진 ({images.length}장)</p>
+                      <div className="flex gap-2 overflow-x-auto pb-1">
+                        {images.map((url, i) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img key={i} src={url} alt="" className="w-20 h-20 rounded-xl object-cover shrink-0" />
+                        ))}
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
                 <div className="flex gap-2 mt-4">
                   <button
                     onClick={() => setState({ step: "idle" })}

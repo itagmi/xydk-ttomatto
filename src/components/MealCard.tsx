@@ -16,6 +16,7 @@ type MealItem = {
 type MealCardProps = {
   type: "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK";
   items: MealItem[];
+  imageUrl?: string | null;
   onAdd?: () => void;
   onEdit?: () => void;
 };
@@ -27,7 +28,7 @@ const MEAL_META = {
   SNACK: { label: "간식", Icon: IconCup, iconBg: "bg-emerald-50", iconColor: "text-emerald-500" },
 } as const;
 
-export default function MealCard({ type, items = [], onAdd, onEdit }: MealCardProps) {
+export default function MealCard({ type, items = [], imageUrl, onAdd, onEdit }: MealCardProps) {
   const { label, Icon, iconBg, iconColor } = MEAL_META[type];
   const totalCalories = items.reduce((sum, item) => sum + item.calories, 0);
   const isEmpty = items.length === 0;
@@ -61,14 +62,24 @@ export default function MealCard({ type, items = [], onAdd, onEdit }: MealCardPr
       {isEmpty ? (
         <p className="text-sm text-zinc-400 pl-1">아직 기록이 없어요</p>
       ) : (
-        <ul className="space-y-1.5 pl-1">
-          {items.map((item, i) => (
-            <li key={i} className="flex items-center justify-between">
-              <span className="text-sm text-zinc-600">{item.name}</span>
-              <span className="text-xs text-zinc-400">{item.calories} kcal</span>
-            </li>
-          ))}
-        </ul>
+        <div className="flex gap-3">
+          {imageUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={imageUrl}
+              alt=""
+              className="w-16 h-16 rounded-xl object-cover shrink-0"
+            />
+          )}
+          <ul className="flex-1 space-y-1.5 pl-1">
+            {items.map((item, i) => (
+              <li key={i} className="flex items-center justify-between">
+                <span className="text-sm text-zinc-600">{item.name}</span>
+                <span className="text-xs text-zinc-400">{item.calories} kcal</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       <button

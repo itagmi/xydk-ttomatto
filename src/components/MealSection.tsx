@@ -218,7 +218,7 @@ function AddRow({
   );
 }
 
-export default function MealSection({ meals }: { meals: MealsData }) {
+export default function MealSection({ meals, mealImages }: { meals: MealsData; mealImages?: Record<MealType, string | null> }) {
   const [drawer, setDrawer] = useState<DrawerState>({ step: "closed" });
   const [newName, setNewName] = useState("");
   const [newCalories, setNewCalories] = useState("");
@@ -381,6 +381,7 @@ export default function MealSection({ meals }: { meals: MealsData }) {
             key={type}
             type={type}
             items={meals[type]}
+            imageUrl={mealImages?.[type]}
             onAdd={() => openDrawer(type)}
             onEdit={() => openEdit(type)}
           />
