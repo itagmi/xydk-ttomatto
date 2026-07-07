@@ -1,10 +1,7 @@
 "use server";
 
-import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
-
-const anthropic = new Anthropic();
 
 type MealType = "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK";
 type MealItem = { name: string; calories: number };
@@ -33,39 +30,13 @@ export async function generatePost(
   meals: MealsData,
   totalCalories: number
 ): Promise<string> {
-  const mealLines = (Object.entries(meals) as [MealType, MealItem[]][])
+  const lines = (Object.entries(meals) as [MealType, MealItem[]][])
     .filter(([, items]) => items.length > 0)
-    .map(([type, items]) => {
-      const kcal = items.reduce((s, i) => s + i.calories, 0);
-      return `${MEAL_LABELS[type]}: ${items.map((i) => i.name).join(", ")} (${kcal}kcal)`;
-    });
+    .map(([type, items]) => `• ${MEAL_LABELS[type]} : ${items.map((i) => i.name).join(", ")}`);
 
-  if (mealLines.length === 0) {
-    return `오늘 하루도 🍅\n\n#식단기록 #또마또`;
-  }
+  lines.push(` 총 : ${totalCalories.toLocaleString("ko-KR")} kcal `);
 
-  const response = await anthropic.messages.create({
-    model: "claude-opus-4-8",
-    max_tokens: 300,
-    messages: [
-      {
-        role: "user",
-        content: `오늘 식단으로 Threads에 올릴 짧은 포스트를 써줘.
-
-오늘 식단:
-${mealLines.join("\n")}
-총 ${totalCalories}kcal / 목표 2000kcal
-
-조건:
-- 2~4줄로 짧게, 자연스럽고 솔직한 한국어
-- 이모지 2~3개
-- 마지막 줄에 #식단기록 #또마또 포함
-- 텍스트만 출력 (설명 없이)`,
-      },
-    ],
-  });
-
-  return response.content.find((b) => b.type === "text")?.text ?? "";
+  return lines.join("\n");
 }
 
 export async function postToThreads(text: string): Promise<void> {
