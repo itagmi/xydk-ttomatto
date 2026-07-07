@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { IconCamera, IconX, IconCheck, IconLoader2, IconRefresh } from "@tabler/icons-react";
 import MealCard from "@/components/MealCard";
-import { saveMealAnalysis, estimateFoodCalories } from "@/app/actions/meal";
+import { saveMealAnalysis, updateMealFoods, estimateFoodCalories } from "@/app/actions/meal";
 
 type MealType = "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK";
 type MealItem = { name: string; calories: number };
@@ -27,6 +27,7 @@ type DrawerState =
   | { step: "pick"; mealType: MealType }
   | { step: "analyzing"; mealType: MealType; preview: string }
   | { step: "result"; mealType: MealType; preview: string; edited: EditedFood[] }
+  | { step: "editing"; mealType: MealType; edited: EditedFood[] }
   | { step: "saving"; mealType: MealType }
   | { step: "error"; mealType: MealType; message: string };
 
@@ -43,6 +44,21 @@ export default function MealSection({ meals }: { meals: MealsData }) {
 
   function openDrawer(mealType: MealType) {
     setDrawer({ step: "pick", mealType });
+  }
+
+  function openEdit(mealType: MealType) {
+    const items = meals[mealType];
+    setDrawer({
+      step: "editing",
+      mealType,
+      edited: items.map((f) => ({
+        name: f.name,
+        calories: f.calories,
+        quantity: 1,
+        nameEdited: false,
+        recalculating: false,
+      })),
+    });
   }
 
   function closeDrawer() {
@@ -120,12 +136,13 @@ export default function MealSection({ meals }: { meals: MealsData }) {
   }
 
   async function handleSave() {
-    if (drawer.step !== "result") return;
+    if (drawer.step !== "result" && drawer.step !== "editing") return;
     const { mealType, edited } = drawer;
     setDrawer({ step: "saving", mealType });
 
     try {
-      await saveMealAnalysis({
+      const action = drawer.step === "editing" ? updateMealFoods : saveMealAnalysis;
+      await action({
         mealType,
         foods: edited.map((f) => ({
           name: f.name,
@@ -152,6 +169,7 @@ export default function MealSection({ meals }: { meals: MealsData }) {
             type={type}
             items={meals[type]}
             onAdd={() => openDrawer(type)}
+            onEdit={() => openEdit(type)}
           />
         ))}
       </section>
@@ -204,6 +222,99 @@ export default function MealSection({ meals }: { meals: MealsData }) {
                 <div className="flex items-center gap-2 text-tomato">
                   <IconLoader2 size={20} className="animate-spin" />
                   <span className="text-sm font-medium">AI가 분석 중이에요...</span>
+                </div>
+              </div>
+            )}
+
+            {/* editing */}
+            {drawer.step === "editing" && (
+              <div className="space-y-4">
+                <ul className="space-y-2">
+                  {drawer.edited.map((food, i) => (
+                    <li key={i} className="bg-zinc-50 rounded-xl px-3 py-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={food.name}
+                          onChange={(e) => updateFood(i, { name: e.target.value, nameEdited: true })}
+                          className="flex-1 text-sm text-zinc-800 font-medium bg-transparent outline-none border-b border-zinc-300 focus:border-tomato"
+                        />
+                        {food.nameEdited && (
+                          <button
+                            onClick={() => recalculate(i)}
+                            disabled={food.recalculating}
+                            className="flex items-center gap-1 text-xs text-tomato shrink-0 disabled:opacity-50"
+                          >
+                            <IconRefresh size={13} className={food.recalculating ? "animate-spin" : ""} />
+                            재계산
+                          </button>
+                        )}
+                        <button
+                          onClick={() => removeFood(i)}
+                          className="w-6 h-6 rounded-full hover:bg-zinc-200 flex items-center justify-center text-zinc-400 shrink-0"
+                        >
+                          <IconX size={13} />
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            value={food.quantity}
+                            min={0.5}
+                            step={0.5}
+                            onChange={(e) => updateFood(i, { quantity: parseFloat(e.target.value) || 1 })}
+                            className="w-12 text-center text-sm text-zinc-700 bg-white rounded-lg border border-zinc-200 outline-none py-0.5 focus:border-tomato"
+                          />
+                          <span className="text-xs text-zinc-400">개</span>
+                        </div>
+                        <span className="text-zinc-300 text-sm">×</span>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            value={food.calories}
+                            onChange={(e) => updateFood(i, { calories: Number(e.target.value) || 0 })}
+                            className="w-16 text-right text-sm text-zinc-700 bg-transparent outline-none border-b border-zinc-300 focus:border-tomato"
+                          />
+                          <span className="text-xs text-zinc-400">kcal</span>
+                        </div>
+                        {food.quantity !== 1 && (
+                          <>
+                            <span className="text-zinc-300 text-sm">=</span>
+                            <span className="text-sm font-bold text-tomato">
+                              {Math.round(food.calories * food.quantity).toLocaleString()} kcal
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="flex justify-between items-center px-1">
+                  <span className="text-sm text-zinc-500">합계</span>
+                  <span className="text-sm font-bold text-tomato">
+                    {drawer.edited
+                      .reduce((s, f) => s + Math.round(f.calories * f.quantity), 0)
+                      .toLocaleString()}{" "}
+                    kcal
+                  </span>
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={closeDrawer}
+                    className="flex-1 py-3 rounded-2xl border border-zinc-200 text-sm font-medium text-zinc-600 hover:bg-zinc-50 transition-colors"
+                  >
+                    취소
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    className="flex-1 py-3 rounded-2xl bg-tomato text-white text-sm font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5"
+                  >
+                    <IconCheck size={16} />
+                    저장하기
+                  </button>
                 </div>
               </div>
             )}

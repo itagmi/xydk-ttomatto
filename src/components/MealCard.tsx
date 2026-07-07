@@ -5,6 +5,7 @@ import {
   IconSoup,
   IconMoon,
   IconCup,
+  IconPencil,
 } from "@tabler/icons-react";
 
 type MealItem = {
@@ -16,6 +17,7 @@ type MealCardProps = {
   type: "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK";
   items: MealItem[];
   onAdd?: () => void;
+  onEdit?: () => void;
 };
 
 const MEAL_META = {
@@ -25,7 +27,7 @@ const MEAL_META = {
   SNACK: { label: "간식", Icon: IconCup, iconBg: "bg-emerald-50", iconColor: "text-emerald-500" },
 } as const;
 
-export default function MealCard({ type, items = [], onAdd }: MealCardProps) {
+export default function MealCard({ type, items = [], onAdd, onEdit }: MealCardProps) {
   const { label, Icon, iconBg, iconColor } = MEAL_META[type];
   const totalCalories = items.reduce((sum, item) => sum + item.calories, 0);
   const isEmpty = items.length === 0;
@@ -39,11 +41,21 @@ export default function MealCard({ type, items = [], onAdd }: MealCardProps) {
           </span>
           <span className="font-semibold text-zinc-800">{label}</span>
         </div>
-        {!isEmpty && (
-          <span className="text-sm font-semibold text-tomato">
-            {totalCalories.toLocaleString()} kcal
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {!isEmpty && (
+            <>
+              <span className="text-sm font-semibold text-tomato">
+                {totalCalories.toLocaleString()} kcal
+              </span>
+              <button
+                onClick={onEdit}
+                className="w-7 h-7 rounded-full hover:bg-zinc-100 flex items-center justify-center text-zinc-400 transition-colors"
+              >
+                <IconPencil size={14} />
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {isEmpty ? (

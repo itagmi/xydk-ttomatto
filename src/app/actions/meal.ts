@@ -105,3 +105,36 @@ export async function saveMealAnalysis(data: {
 
   revalidatePath("/");
 }
+
+export async function updateMealFoods(data: {
+  mealType: MealType;
+  foods: { name: string; calories: number; quantity: number }[];
+}) {
+  const dbUser = await getOrCreateDbUser();
+  const today = todayUtcMidnight();
+
+  const diary = await prisma.diaryEntry.upsert({
+    where: { userId_date: { userId: dbUser.id, date: today } },
+    update: {},
+    create: { userId: dbUser.id, date: today },
+  });
+
+  const meal = await prisma.meal.upsert({
+    where: { diaryEntryId_mealType: { diaryEntryId: diary.id, mealType: data.mealType } },
+    update: {},
+    create: { diaryEntryId: diary.id, mealType: data.mealType },
+  });
+
+  await prisma.mealFood.deleteMany({ where: { mealId: meal.id } });
+
+  for (const item of data.foods) {
+    const food = await prisma.food.create({
+      data: { name: item.name, calories: item.calories, servingSize: 1, userId: dbUser.id },
+    });
+    await prisma.mealFood.create({
+      data: { mealId: meal.id, foodId: food.id, amount: item.quantity },
+    });
+  }
+
+  revalidatePath("/");
+}
