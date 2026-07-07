@@ -42,9 +42,7 @@ export default function MealCard({ type, items = [], onAdd, onEdit }: MealCardPr
           <span className="font-semibold text-zinc-800">{label}</span>
         </div>
         <div className="flex items-center gap-2">
-          {isEmpty ? (
-            <span className="text-base">❌</span>
-          ) : (
+          {!isEmpty && (
             <>
               <span className="text-sm font-semibold text-tomato">
                 {totalCalories.toLocaleString()} kcal
@@ -61,7 +59,7 @@ export default function MealCard({ type, items = [], onAdd, onEdit }: MealCardPr
       </div>
 
       {isEmpty ? (
-        <p className="text-sm text-zinc-400 pl-1">기록 없음</p>
+        <p className="text-sm text-zinc-400 pl-1">아직 기록이 없어요</p>
       ) : (
         <ul className="space-y-1.5 pl-1">
           {items.map((item, i) => (

@@ -30,9 +30,11 @@ export async function generatePost(
   meals: MealsData,
   totalCalories: number
 ): Promise<string> {
-  const lines = (Object.entries(meals) as [MealType, MealItem[]][])
-    .filter(([, items]) => items.length > 0)
-    .map(([type, items]) => `• ${MEAL_LABELS[type]} : ${items.map((i) => i.name).join(", ")}`);
+  const lines = (Object.entries(meals) as [MealType, MealItem[]][]).map(([type, items]) =>
+    items.length > 0
+      ? `• ${MEAL_LABELS[type]} : ${items.map((i) => i.name).join(", ")}`
+      : `• ${MEAL_LABELS[type]} : ❌`
+  );
 
   lines.push(`\n🍅 총 : ${totalCalories.toLocaleString("ko-KR")} kcal 🍅`);
 
