@@ -15,6 +15,15 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "또마또",
   description: "나만의 식단 기록 앱",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "또마또",
+  },
+  icons: {
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({
