@@ -3,21 +3,21 @@ import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
-  const origin = request.nextUrl.origin;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
   const code = request.nextUrl.searchParams.get("code");
   const error = request.nextUrl.searchParams.get("error");
 
   if (error || !code) {
-    return Response.redirect(`${origin}/?error=threads_auth`);
+    return Response.redirect(`${appUrl}/?error=threads_auth`);
   }
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    return Response.redirect(`${origin}/auth/login`);
+    return Response.redirect(`${appUrl}/auth/login`);
   }
 
-  const redirectUri = `${origin}/auth/threads/callback`;
+  const redirectUri = `${appUrl}/auth/threads/callback`;
 
   // 단기 토큰 교환
   const tokenRes = await fetch("https://graph.threads.net/oauth/access_token", {
@@ -56,5 +56,5 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  return Response.redirect(`${origin}/`);
+  return Response.redirect(`${appUrl}/`);
 }
