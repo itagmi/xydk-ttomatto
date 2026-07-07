@@ -2,22 +2,22 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 
+const APP_URL = "https://ttomatto.vercel.app";
+const REDIRECT_URI = `${APP_URL}/auth/threads/callback`;
+
 export async function GET(request: NextRequest) {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
   const code = request.nextUrl.searchParams.get("code");
   const error = request.nextUrl.searchParams.get("error");
 
   if (error || !code) {
-    return Response.redirect(`${appUrl}/?error=threads_auth`);
+    return Response.redirect(`${APP_URL}/?error=threads_auth`);
   }
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    return Response.redirect(`${appUrl}/auth/login`);
+    return Response.redirect(`${APP_URL}/auth/login`);
   }
-
-  const redirectUri = `${appUrl}/auth/threads/callback`;
 
   // 단기 토큰 교환
   const tokenRes = await fetch("https://graph.threads.net/oauth/access_token", {
@@ -27,14 +27,14 @@ export async function GET(request: NextRequest) {
       client_id: process.env.THREADS_APP_ID!,
       client_secret: process.env.THREADS_APP_SECRET!,
       grant_type: "authorization_code",
-      redirect_uri: redirectUri,
+      redirect_uri: REDIRECT_URI,
       code,
     }),
   });
 
   const tokenData = await tokenRes.json();
   if (!tokenData.access_token) {
-    return Response.redirect(`${origin}/?error=threads_token`);
+    return Response.redirect(`${APP_URL}/?error=threads_token`);
   }
 
   // 장기 토큰 교환 (60일)
@@ -56,5 +56,5 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  return Response.redirect(`${appUrl}/`);
+  return Response.redirect(`${APP_URL}/`);
 }
