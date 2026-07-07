@@ -1,8 +1,10 @@
 import { IconLogout } from "@tabler/icons-react";
 import MealSection from "@/components/MealSection";
+import DailyCloseButton from "@/components/DailyCloseButton";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/actions/auth";
 import { getTodayMeals } from "@/app/actions/meal";
+import { getThreadsStatus } from "@/app/actions/threads";
 
 const GOAL_CALORIES = 2000;
 
@@ -28,7 +30,10 @@ export default async function Home() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const diary = await getTodayMeals();
+  const [diary, { connected: threadsConnected }] = await Promise.all([
+    getTodayMeals(),
+    getThreadsStatus(),
+  ]);
 
   const meals: Record<MealType, MealItem[]> = {
     BREAKFAST: [],
@@ -41,7 +46,7 @@ export default async function Home() {
     for (const meal of diary.meals) {
       meals[meal.mealType as MealType] = meal.mealFoods.map((mf) => ({
         name: mf.food.name,
-        calories: mf.food.calories,
+        calories: Math.round(mf.food.calories * mf.amount),
       }));
     }
   }
@@ -116,10 +121,11 @@ export default async function Home() {
       {/* 하단 고정 버튼 */}
       <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-[#fff8f7] via-[#fff8f7] to-transparent pt-8 pb-6 px-4">
         <div className="max-w-lg mx-auto">
-          <button className="w-full bg-zinc-900 hover:bg-zinc-700 text-white font-semibold rounded-2xl py-4 flex items-center justify-center gap-2.5 transition-colors shadow-lg">
-            <span className="text-lg">🍅</span>
-            <span>오늘 마감하고 Threads에 올리기</span>
-          </button>
+          <DailyCloseButton
+            threadsConnected={threadsConnected}
+            meals={meals}
+            totalCalories={totalCalories}
+          />
         </div>
       </div>
     </div>

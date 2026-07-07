@@ -1,10 +1,13 @@
 "use server";
 
+import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
 type MealType = "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK";
+
+const anthropic = new Anthropic();
 
 async function getOrCreateDbUser() {
   const supabase = await createClient();
@@ -44,9 +47,25 @@ export async function getTodayMeals() {
   });
 }
 
+export async function estimateFoodCalories(foodName: string): Promise<number> {
+  const response = await anthropic.messages.create({
+    model: "claude-opus-4-8",
+    max_tokens: 50,
+    messages: [
+      {
+        role: "user",
+        content: `"${foodName}" 1인분의 칼로리를 숫자만 답해줘. 단위 없이 정수만.`,
+      },
+    ],
+  });
+
+  const text = response.content.find((b) => b.type === "text")?.text ?? "0";
+  return parseInt(text.match(/\d+/)?.[0] ?? "0") || 0;
+}
+
 export async function saveMealAnalysis(data: {
   mealType: MealType;
-  foods: { name: string; calories: number }[];
+  foods: { name: string; calories: number; quantity: number }[];
 }) {
   const dbUser = await getOrCreateDbUser();
   const today = todayUtcMidnight();
@@ -80,7 +99,7 @@ export async function saveMealAnalysis(data: {
       },
     });
     await prisma.mealFood.create({
-      data: { mealId: meal.id, foodId: food.id, amount: 1 },
+      data: { mealId: meal.id, foodId: food.id, amount: item.quantity },
     });
   }
 

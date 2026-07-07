@@ -18,6 +18,10 @@ model User {
   diaryEntries DiaryEntry[]
   foods        Food[]
 
+  threadsUserId      String?
+  threadsAccessToken String?
+  threadsTokenExpiry DateTime?
+
   @@index([authId])
 }
 
