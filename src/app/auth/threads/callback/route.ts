@@ -1,5 +1,4 @@
-import { NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 const APP_URL = "https://ttomatto.vercel.app";
@@ -10,17 +9,18 @@ export async function GET(request: NextRequest) {
   const error = request.nextUrl.searchParams.get("error");
 
   if (error || !code) {
-    console.error("[threads/callback] error param:", error);
-    return Response.redirect(`${APP_URL}/?error=threads_auth`);
+    console.error("[threads/callback] error:", error);
+    return NextResponse.redirect(`${APP_URL}/?error=threads_auth`);
   }
 
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    console.error("[threads/callback] no supabase user");
-    return Response.redirect(`${APP_URL}/auth/login`);
+  // 세션 쿠키 대신 저장해둔 user id 사용
+  const authUid = request.cookies.get("threads_auth_uid")?.value;
+  if (!authUid) {
+    console.error("[threads/callback] no threads_auth_uid cookie");
+    return NextResponse.redirect(`${APP_URL}/auth/login`);
   }
-  console.log("[threads/callback] user:", user.id);
+
+  console.log("[threads/callback] authUid:", authUid);
 
   // 단기 토큰 교환
   const tokenRes = await fetch("https://graph.threads.net/oauth/access_token", {
@@ -37,8 +37,9 @@ export async function GET(request: NextRequest) {
 
   const tokenData = await tokenRes.json();
   console.log("[threads/callback] tokenData:", JSON.stringify(tokenData));
+
   if (!tokenData.access_token) {
-    return Response.redirect(`${APP_URL}/?error=threads_token`);
+    return NextResponse.redirect(`${APP_URL}/?error=threads_token`);
   }
 
   // 장기 토큰 교환 (60일)
@@ -52,7 +53,7 @@ export async function GET(request: NextRequest) {
   const threadsUserId = String(tokenData.user_id);
 
   await prisma.user.update({
-    where: { authId: user.id },
+    where: { authId: authUid },
     data: {
       threadsUserId,
       threadsAccessToken: accessToken,
@@ -60,5 +61,9 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  return Response.redirect(`${APP_URL}/`);
+  console.log("[threads/callback] saved token for user:", authUid);
+
+  const response = NextResponse.redirect(`${APP_URL}/`);
+  response.cookies.delete("threads_auth_uid");
+  return response;
 }
