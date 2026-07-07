@@ -98,6 +98,14 @@ export default function MealSection({ meals }: { meals: MealsData }) {
     });
   }
 
+  function removeFood(index: number) {
+    if (drawer.step !== "result") return;
+    setDrawer({
+      ...drawer,
+      edited: drawer.edited.filter((_, i) => i !== index),
+    });
+  }
+
   async function recalculate(index: number) {
     if (drawer.step !== "result") return;
     const foodName = drawer.edited[index].name;
@@ -232,6 +240,12 @@ export default function MealSection({ meals }: { meals: MealsData }) {
                               재계산
                             </button>
                           )}
+                          <button
+                            onClick={() => removeFood(i)}
+                            className="w-6 h-6 rounded-full hover:bg-zinc-200 flex items-center justify-center text-zinc-400 shrink-0"
+                          >
+                            <IconX size={13} />
+                          </button>
                         </div>
 
                         {/* 개수 × 칼로리 */}
