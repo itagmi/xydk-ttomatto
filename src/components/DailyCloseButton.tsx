@@ -41,11 +41,11 @@ export default function DailyCloseButton({
 
   async function handlePost(text: string) {
     setState({ step: "posting" });
-    try {
-      await postToThreads(text);
+    const result = await postToThreads(text);
+    if (result.success) {
       setState({ step: "done" });
-    } catch (err) {
-      setState({ step: "error", message: err instanceof Error ? err.message : "발행 실패" });
+    } else {
+      setState({ step: "error", message: result.error });
     }
   }
 
@@ -159,7 +159,17 @@ export default function DailyCloseButton({
 
       {/* 에러 */}
       {state.step === "error" && (
-        <p className="text-xs text-red-500 text-center mt-2">{state.message}</p>
+        <div className="mt-2 text-center space-y-1.5">
+          <p className="text-xs text-red-500">{state.message}</p>
+          {state.message.includes("재연결") && (
+            <a
+              href="/auth/threads"
+              className="inline-block text-xs text-zinc-900 font-semibold underline underline-offset-2"
+            >
+              Threads 재연결하기 →
+            </a>
+          )}
+        </div>
       )}
     </>
   );

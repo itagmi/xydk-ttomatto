@@ -62,29 +62,44 @@ export async function generatePost(
   return lines.join("\n");
 }
 
-export async function postToThreads(text: string): Promise<void> {
-  const dbUser = await getDbUser();
-  if (!dbUser?.threadsAccessToken || !dbUser.threadsUserId) {
-    throw new Error("Threads가 연결되지 않았어요");
+export async function postToThreads(text: string): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    const dbUser = await getDbUser();
+    if (!dbUser?.threadsAccessToken || !dbUser.threadsUserId) {
+      return { success: false, error: "Threads가 연결되지 않았어요" };
+    }
+
+    const { threadsUserId: userId, threadsAccessToken: token } = dbUser;
+
+    let imageUrls: string[] = [];
+    try {
+      imageUrls = await getTodayImageUrls();
+    } catch {
+      imageUrls = [];
+    }
+
+    if (imageUrls.length === 0) {
+      await publishText(userId, token, text);
+    } else if (imageUrls.length === 1) {
+      await publishSingleImage(userId, token, text, imageUrls[0]);
+    } else {
+      await publishCarousel(userId, token, text, imageUrls);
+    }
+
+    return { success: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "발행 실패";
+    const needsReconnect = message.toLowerCase().includes("unsupported") ||
+      message.toLowerCase().includes("invalid") ||
+      message.toLowerCase().includes("token") ||
+      message.toLowerCase().includes("oauth");
+    return {
+      success: false,
+      error: needsReconnect
+        ? `Threads 연결이 만료됐어요. 재연결이 필요합니다. (${message})`
+        : message,
+    };
   }
-
-  const { threadsUserId: userId, threadsAccessToken: token } = dbUser;
-  const imageUrls = await getTodayImageUrls();
-
-  // 이미지가 없으면 텍스트만
-  if (imageUrls.length === 0) {
-    await publishText(userId, token, text);
-    return;
-  }
-
-  // 이미지 1장이면 IMAGE 타입
-  if (imageUrls.length === 1) {
-    await publishSingleImage(userId, token, text, imageUrls[0]);
-    return;
-  }
-
-  // 이미지 여러 장이면 CAROUSEL
-  await publishCarousel(userId, token, text, imageUrls);
 }
 
 async function publishText(userId: string, token: string, text: string) {
