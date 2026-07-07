@@ -389,7 +389,7 @@ export default function MealSection({ meals }: { meals: MealsData }) {
       {isOpen && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeDrawer} />
-          <div className="relative bg-white rounded-t-3xl px-5 pt-5 pb-8 max-h-[85vh] overflow-y-auto">
+          <div className="relative bg-white rounded-t-3xl px-5 pt-5 pb-8 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="w-10 h-1 bg-zinc-200 rounded-full mx-auto mb-5" />
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-base font-bold text-zinc-900">
