@@ -26,6 +26,7 @@ type EditedFood = {
   name: string;
   calories: number;
   quantity: number;
+  unit: string;
   nameEdited: boolean;
   recalculating: boolean;
 };
@@ -47,6 +48,15 @@ const MEAL_LABELS: Record<MealType, string> = {
   SNACK: "간식",
 };
 
+const UNITS = ["개", "g", "ml", "컵", "큰술"];
+
+function unitStep(unit: string) {
+  return unit === "g" || unit === "ml" ? 10 : 0.5;
+}
+function unitMin(unit: string) {
+  return unit === "g" || unit === "ml" ? 10 : 0.5;
+}
+
 function FoodRows({
   edited,
   onUpdate,
@@ -62,6 +72,7 @@ function FoodRows({
     <ul className="space-y-2">
       {edited.map((food, i) => (
         <li key={i} className="bg-zinc-50 rounded-xl px-3 py-3 space-y-2">
+          {/* 이름 행 */}
           <div className="flex items-center gap-2">
             <input
               type="text"
@@ -86,18 +97,35 @@ function FoodRows({
               <IconX size={13} />
             </button>
           </div>
+
+          {/* 단위 선택 */}
+          <div className="flex gap-1">
+            {UNITS.map((u) => (
+              <button
+                key={u}
+                onClick={() => onUpdate(i, { unit: u, nameEdited: true })}
+                className={`px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${
+                  food.unit === u
+                    ? "bg-tomato text-white"
+                    : "bg-white border border-zinc-200 text-zinc-500 hover:border-tomato hover:text-tomato"
+                }`}
+              >
+                {u}
+              </button>
+            ))}
+          </div>
+
+          {/* 수량 × 칼로리 */}
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1">
-              <input
-                type="number"
-                value={food.quantity}
-                min={0.5}
-                step={0.5}
-                onChange={(e) => onUpdate(i, { quantity: parseFloat(e.target.value) || 1 })}
-                className="w-12 text-center text-sm text-zinc-700 bg-white rounded-lg border border-zinc-200 outline-none py-0.5 focus:border-tomato"
-              />
-              <span className="text-xs text-zinc-400">개</span>
-            </div>
+            <input
+              type="number"
+              value={food.quantity}
+              min={unitMin(food.unit)}
+              step={unitStep(food.unit)}
+              onChange={(e) => onUpdate(i, { quantity: parseFloat(e.target.value) || unitMin(food.unit) })}
+              className="w-16 text-center text-sm text-zinc-700 bg-white rounded-lg border border-zinc-200 outline-none py-0.5 focus:border-tomato"
+            />
+            <span className="text-xs text-zinc-500">{food.unit}</span>
             <span className="text-zinc-300 text-sm">×</span>
             <div className="flex items-center gap-1">
               <input
@@ -128,6 +156,8 @@ function AddRow({
   setNewName,
   newCalories,
   setNewCalories,
+  newUnit,
+  setNewUnit,
   estimating,
   onAdd,
 }: {
@@ -135,33 +165,54 @@ function AddRow({
   setNewName: (v: string) => void;
   newCalories: string;
   setNewCalories: (v: string) => void;
+  newUnit: string;
+  setNewUnit: (v: string) => void;
   estimating: boolean;
   onAdd: () => void;
 }) {
   return (
-    <div className="flex items-center gap-2 bg-zinc-50 rounded-xl px-3 py-2.5">
-      <input
-        type="text"
-        value={newName}
-        onChange={(e) => setNewName(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && onAdd()}
-        placeholder="음식 이름"
-        className="flex-1 text-sm bg-transparent outline-none text-zinc-800 placeholder:text-zinc-400"
-      />
-      <input
-        type="number"
-        value={newCalories}
-        onChange={(e) => setNewCalories(e.target.value)}
-        placeholder="kcal"
-        className="w-16 text-right text-sm bg-transparent outline-none border-b border-zinc-200 focus:border-tomato text-zinc-600 placeholder:text-zinc-300"
-      />
-      <button
-        onClick={onAdd}
-        disabled={!newName.trim() || estimating}
-        className="w-7 h-7 rounded-full bg-tomato flex items-center justify-center text-white disabled:opacity-40 shrink-0"
-      >
-        {estimating ? <IconLoader2 size={14} className="animate-spin" /> : <IconPlus size={14} />}
-      </button>
+    <div className="bg-zinc-50 rounded-xl px-3 py-3 space-y-2">
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && onAdd()}
+          placeholder="음식 이름"
+          className="flex-1 text-sm bg-transparent outline-none text-zinc-800 placeholder:text-zinc-400 border-b border-zinc-300 focus:border-tomato pb-0.5"
+        />
+        <button
+          onClick={onAdd}
+          disabled={!newName.trim() || estimating}
+          className="w-7 h-7 rounded-full bg-tomato flex items-center justify-center text-white disabled:opacity-40 shrink-0"
+        >
+          {estimating ? <IconLoader2 size={14} className="animate-spin" /> : <IconPlus size={14} />}
+        </button>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="flex gap-1">
+          {UNITS.map((u) => (
+            <button
+              key={u}
+              onClick={() => setNewUnit(u)}
+              className={`px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${
+                newUnit === u
+                  ? "bg-tomato text-white"
+                  : "bg-white border border-zinc-200 text-zinc-500 hover:border-tomato hover:text-tomato"
+              }`}
+            >
+              {u}
+            </button>
+          ))}
+        </div>
+        <input
+          type="number"
+          value={newCalories}
+          onChange={(e) => setNewCalories(e.target.value)}
+          placeholder="kcal (비우면 AI 추정)"
+          className="flex-1 text-right text-xs bg-transparent outline-none border-b border-zinc-200 focus:border-tomato text-zinc-600 placeholder:text-zinc-300"
+        />
+      </div>
     </div>
   );
 }
@@ -170,6 +221,7 @@ export default function MealSection({ meals }: { meals: MealsData }) {
   const [drawer, setDrawer] = useState<DrawerState>({ step: "closed" });
   const [newName, setNewName] = useState("");
   const [newCalories, setNewCalories] = useState("");
+  const [newUnit, setNewUnit] = useState("개");
   const [estimating, setEstimating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -185,6 +237,7 @@ export default function MealSection({ meals }: { meals: MealsData }) {
         name: f.name,
         calories: f.calories,
         quantity: 1,
+        unit: "개",
         nameEdited: false,
         recalculating: false,
       })),
@@ -195,6 +248,7 @@ export default function MealSection({ meals }: { meals: MealsData }) {
     setDrawer({ step: "closed" });
     setNewName("");
     setNewCalories("");
+    setNewUnit("개");
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -223,6 +277,7 @@ export default function MealSection({ meals }: { meals: MealsData }) {
           name: f.name,
           calories: f.calories,
           quantity: 1,
+          unit: "개",
           nameEdited: false,
           recalculating: false,
         })),
@@ -262,10 +317,10 @@ export default function MealSection({ meals }: { meals: MealsData }) {
   async function recalculate(i: number) {
     const edited = getEdited();
     if (!edited) return;
-    const foodName = edited[i].name;
+    const { name, quantity, unit } = edited[i];
     updateFood(i, { recalculating: true, nameEdited: false });
     try {
-      const calories = await estimateFoodCalories(foodName);
+      const calories = await estimateFoodCalories(name, quantity, unit);
       updateFood(i, { calories, recalculating: false });
     } catch {
       updateFood(i, { recalculating: false });
@@ -278,7 +333,7 @@ export default function MealSection({ meals }: { meals: MealsData }) {
     if (!calories || isNaN(calories)) {
       setEstimating(true);
       try {
-        calories = await estimateFoodCalories(newName.trim());
+        calories = await estimateFoodCalories(newName.trim(), 1, newUnit);
       } catch {
         calories = 0;
       }
@@ -287,7 +342,7 @@ export default function MealSection({ meals }: { meals: MealsData }) {
     const edited = getEdited() ?? [];
     setEdited([
       ...edited,
-      { name: newName.trim(), calories, quantity: 1, nameEdited: false, recalculating: false },
+      { name: newName.trim(), calories, quantity: 1, unit: newUnit, nameEdited: false, recalculating: false },
     ]);
     setNewName("");
     setNewCalories("");
@@ -387,14 +442,7 @@ export default function MealSection({ meals }: { meals: MealsData }) {
             {drawer.step === "manual" && (
               <div className="space-y-4">
                 <FoodRows edited={edited} onUpdate={updateFood} onRemove={removeFood} onRecalculate={recalculate} />
-                <AddRow
-                  newName={newName}
-                  setNewName={setNewName}
-                  newCalories={newCalories}
-                  setNewCalories={setNewCalories}
-                  estimating={estimating}
-                  onAdd={addManualItem}
-                />
+                <AddRow newName={newName} setNewName={setNewName} newCalories={newCalories} setNewCalories={setNewCalories} newUnit={newUnit} setNewUnit={setNewUnit} estimating={estimating} onAdd={addManualItem} />
                 <div className="flex justify-between items-center px-1">
                   <span className="text-sm text-zinc-500">합계</span>
                   <span className="text-sm font-bold text-tomato">{totalKcal.toLocaleString()} kcal</span>
@@ -412,14 +460,7 @@ export default function MealSection({ meals }: { meals: MealsData }) {
             {drawer.step === "editing" && (
               <div className="space-y-4">
                 <FoodRows edited={edited} onUpdate={updateFood} onRemove={removeFood} onRecalculate={recalculate} />
-                <AddRow
-                  newName={newName}
-                  setNewName={setNewName}
-                  newCalories={newCalories}
-                  setNewCalories={setNewCalories}
-                  estimating={estimating}
-                  onAdd={addManualItem}
-                />
+                <AddRow newName={newName} setNewName={setNewName} newCalories={newCalories} setNewCalories={setNewCalories} newUnit={newUnit} setNewUnit={setNewUnit} estimating={estimating} onAdd={addManualItem} />
                 <div className="flex justify-between items-center px-1">
                   <span className="text-sm text-zinc-500">합계</span>
                   <span className="text-sm font-bold text-tomato">{totalKcal.toLocaleString()} kcal</span>

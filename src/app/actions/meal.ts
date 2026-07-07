@@ -47,14 +47,18 @@ export async function getTodayMeals() {
   });
 }
 
-export async function estimateFoodCalories(foodName: string): Promise<number> {
+export async function estimateFoodCalories(
+  foodName: string,
+  quantity = 1,
+  unit = "개"
+): Promise<number> {
   const response = await anthropic.messages.create({
     model: "claude-opus-4-8",
     max_tokens: 50,
     messages: [
       {
         role: "user",
-        content: `"${foodName}" 1인분의 칼로리를 숫자만 답해줘. 단위 없이 정수만.`,
+        content: `"${foodName}" ${quantity}${unit}의 칼로리를 숫자만 답해줘. 단위 없이 정수만.`,
       },
     ],
   });
