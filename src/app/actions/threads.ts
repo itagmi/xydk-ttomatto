@@ -34,7 +34,7 @@ export async function generatePost(
     .filter(([, items]) => items.length > 0)
     .map(([type, items]) => `• ${MEAL_LABELS[type]} : ${items.map((i) => i.name).join(", ")}`);
 
-  lines.push(` 총 : ${totalCalories.toLocaleString("ko-KR")} kcal `);
+  lines.push(`\n🍅 총 : ${totalCalories.toLocaleString("ko-KR")} kcal 🍅`);
 
   return lines.join("\n");
 }
