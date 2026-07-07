@@ -60,7 +60,8 @@ export async function estimateFoodCalories(foodName: string): Promise<number> {
   });
 
   const text = response.content.find((b) => b.type === "text")?.text ?? "0";
-  return parseInt(text.match(/\d+/)?.[0] ?? "0") || 0;
+  const nums = (text.match(/\d+/g) ?? []).map(Number);
+  return nums.find((n) => n >= 10) ?? 0;
 }
 
 export async function saveMealAnalysis(data: {
