@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
@@ -7,8 +8,11 @@ import { Suspense } from "react";
 function LoginContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
+  const [loading, setLoading] = useState(false);
 
   async function handleGoogleLogin() {
+    if (loading) return;
+    setLoading(true);
     const supabase = createClient();
     await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -16,6 +20,7 @@ function LoginContent() {
         redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
+    // OAuth 리다이렉트 후에도 로딩 유지 (브라우저가 이동하기 전까지)
   }
 
   return (
@@ -39,10 +44,23 @@ function LoginContent() {
           )}
           <button
             onClick={handleGoogleLogin}
-            className="w-full flex items-center justify-center gap-3 h-12 bg-white border border-zinc-200 rounded-xl text-[15px] font-medium text-zinc-700 hover:bg-zinc-50 transition-colors shadow-sm"
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-3 h-12 bg-white border border-zinc-200 rounded-xl text-[15px] font-medium text-zinc-700 hover:bg-zinc-50 transition-colors shadow-sm disabled:opacity-70"
           >
-            <GoogleIcon />
-            Google로 계속하기
+            {loading ? (
+              <>
+                <svg className="animate-spin w-[18px] h-[18px] text-zinc-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                </svg>
+                로그인 중...
+              </>
+            ) : (
+              <>
+                <GoogleIcon />
+                Google로 계속하기
+              </>
+            )}
           </button>
         </div>
 
