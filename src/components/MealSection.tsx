@@ -120,10 +120,10 @@ function FoodRows({
           <div className="flex items-center gap-2">
             <input
               type="number"
-              value={food.quantity}
-              min={unitMin(food.unit)}
+              value={food.quantity === 0 ? "" : food.quantity}
+              min={0}
               step={unitStep(food.unit)}
-              onChange={(e) => onUpdate(i, { quantity: parseFloat(e.target.value) || unitMin(food.unit) })}
+              onChange={(e) => onUpdate(i, { quantity: e.target.value === "" ? 0 : parseFloat(e.target.value) || 0 })}
               className="w-16 text-center text-sm text-zinc-700 bg-white rounded-lg border border-zinc-200 outline-none py-0.5 focus:border-tomato"
             />
             <span className="text-xs text-zinc-500">{food.unit}</span>
@@ -131,9 +131,10 @@ function FoodRows({
             <div className="flex items-center gap-1">
               <input
                 type="number"
-                value={food.calories}
-                onChange={(e) => onUpdate(i, { calories: Number(e.target.value) || 0 })}
-                className="w-16 text-right text-sm text-zinc-700 bg-transparent outline-none border-b border-zinc-300 focus:border-tomato"
+                value={food.calories === 0 ? "" : food.calories}
+                placeholder="0"
+                onChange={(e) => onUpdate(i, { calories: e.target.value === "" ? 0 : Number(e.target.value) || 0 })}
+                className="w-16 text-right text-sm text-zinc-700 bg-transparent outline-none border-b border-zinc-300 focus:border-tomato placeholder:text-zinc-300"
               />
               <span className="text-xs text-zinc-400">kcal</span>
             </div>

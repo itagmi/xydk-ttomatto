@@ -69,7 +69,9 @@ export async function postToThreads(text: string): Promise<{ success: true } | {
       return { success: false, error: "Threads가 연결되지 않았어요" };
     }
 
-    const { threadsUserId: userId, threadsAccessToken: token } = dbUser;
+    // 저장된 threadsUserId가 오래됐거나 틀릴 수 있으므로 "me" 사용
+    const userId = "me";
+    const token = dbUser.threadsAccessToken;
 
     let imageUrls: string[] = [];
     try {
