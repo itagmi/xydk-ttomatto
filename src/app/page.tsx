@@ -42,11 +42,11 @@ export default async function Home() {
     SNACK: [],
   };
 
-  const mealImages: Record<MealType, string | null> = {
-    BREAKFAST: null,
-    LUNCH: null,
-    DINNER: null,
-    SNACK: null,
+  const mealImages: Record<MealType, string[]> = {
+    BREAKFAST: [],
+    LUNCH: [],
+    DINNER: [],
+    SNACK: [],
   };
 
   if (diary) {
@@ -56,7 +56,7 @@ export default async function Home() {
         name: mf.food.name,
         calories: Math.round(mf.food.calories * mf.amount),
       }));
-      mealImages[type] = meal.imageUrl ?? null;
+      mealImages[type] = meal.imageUrls;
     }
   }
 

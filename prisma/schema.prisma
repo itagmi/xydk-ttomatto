@@ -45,7 +45,7 @@ model Meal {
   diaryEntryId String
   mealType     MealType
   name         String?
-  imageUrl     String?
+  imageUrls    String[]  @default([])
   eatenAt      DateTime?
   createdAt    DateTime  @default(now())
 

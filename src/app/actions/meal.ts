@@ -89,8 +89,12 @@ export async function saveMealAnalysis(data: {
         mealType: data.mealType,
       },
     },
-    update: data.imageUrl ? { imageUrl: data.imageUrl } : {},
-    create: { diaryEntryId: diary.id, mealType: data.mealType, imageUrl: data.imageUrl },
+    update: data.imageUrl ? { imageUrls: { push: data.imageUrl } } : {},
+    create: {
+      diaryEntryId: diary.id,
+      mealType: data.mealType,
+      imageUrls: data.imageUrl ? [data.imageUrl] : [],
+    },
   });
 
   await prisma.mealFood.deleteMany({ where: { mealId: meal.id } });

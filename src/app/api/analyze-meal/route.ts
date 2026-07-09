@@ -36,8 +36,9 @@ export async function POST(request: NextRequest) {
       contentType: mediaType,
     });
     imageUrl = blob.url;
-  } catch {
+  } catch (err) {
     // 업로드 실패해도 분석은 계속
+    console.error("[analyze-meal] blob upload failed:", err);
   }
 
   const response = await client.messages.create({

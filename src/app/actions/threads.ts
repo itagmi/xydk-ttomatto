@@ -34,12 +34,10 @@ async function getTodayImageUrls(): Promise<string[]> {
 
   const diary = await prisma.diaryEntry.findUnique({
     where: { userId_date: { userId: dbUser.id, date: today } },
-    include: { meals: { select: { imageUrl: true } } },
+    include: { meals: { select: { imageUrls: true } } },
   });
 
-  return (diary?.meals ?? [])
-    .map((m) => m.imageUrl)
-    .filter((url): url is string => !!url);
+  return (diary?.meals ?? []).flatMap((m) => m.imageUrls);
 }
 
 export async function getThreadsStatus() {

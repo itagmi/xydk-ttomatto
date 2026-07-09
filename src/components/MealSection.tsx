@@ -219,7 +219,7 @@ function AddRow({
   );
 }
 
-export default function MealSection({ meals, mealImages }: { meals: MealsData; mealImages?: Record<MealType, string | null> }) {
+export default function MealSection({ meals, mealImages }: { meals: MealsData; mealImages?: Record<MealType, string[]> }) {
   const [drawer, setDrawer] = useState<DrawerState>({ step: "closed" });
   const [newName, setNewName] = useState("");
   const [newCalories, setNewCalories] = useState("");
@@ -227,23 +227,23 @@ export default function MealSection({ meals, mealImages }: { meals: MealsData; m
   const [estimating, setEstimating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  function toEdited(items: MealItem[]): EditedFood[] {
+    return items.map((f) => ({
+      name: f.name,
+      calories: f.calories,
+      quantity: 1,
+      unit: "개",
+      nameEdited: false,
+      recalculating: false,
+    }));
+  }
+
   function openDrawer(mealType: MealType) {
     setDrawer({ step: "pick", mealType });
   }
 
   function openEdit(mealType: MealType) {
-    setDrawer({
-      step: "editing",
-      mealType,
-      edited: meals[mealType].map((f) => ({
-        name: f.name,
-        calories: f.calories,
-        quantity: 1,
-        unit: "개",
-        nameEdited: false,
-        recalculating: false,
-      })),
-    });
+    setDrawer({ step: "editing", mealType, edited: toEdited(meals[mealType]) });
   }
 
   function closeDrawer() {
@@ -271,19 +271,23 @@ export default function MealSection({ meals, mealImages }: { meals: MealsData; m
         throw new Error(body.error ?? "분석 실패");
       }
       const result: AnalysisResult = await res.json();
+      // 기존 기록이 있으면 뒤에 이어붙인다
       setDrawer({
         step: "result",
         mealType,
         preview,
         imageUrl: result.imageUrl,
-        edited: result.foods.map((f) => ({
-          name: f.name,
-          calories: f.calories,
-          quantity: 1,
-          unit: "개",
-          nameEdited: false,
-          recalculating: false,
-        })),
+        edited: [
+          ...toEdited(meals[mealType]),
+          ...result.foods.map((f) => ({
+            name: f.name,
+            calories: f.calories,
+            quantity: 1,
+            unit: "개",
+            nameEdited: false,
+            recalculating: false,
+          })),
+        ],
       });
     } catch (err) {
       setDrawer({
@@ -382,7 +386,7 @@ export default function MealSection({ meals, mealImages }: { meals: MealsData; m
             key={type}
             type={type}
             items={meals[type]}
-            imageUrl={mealImages?.[type]}
+            imageUrls={mealImages?.[type]}
             onAdd={() => openDrawer(type)}
             onEdit={() => openEdit(type)}
           />
@@ -420,7 +424,7 @@ export default function MealSection({ meals, mealImages }: { meals: MealsData; m
                   <span className="text-xs text-zinc-400">카메라 또는 갤러리</span>
                 </button>
                 <button
-                  onClick={() => setDrawer({ step: "manual", mealType: drawer.mealType, edited: [] })}
+                  onClick={() => setDrawer({ step: "manual", mealType: drawer.mealType, edited: toEdited(meals[drawer.mealType]) })}
                   className="w-full border-2 border-dashed border-zinc-200 rounded-2xl py-6 flex flex-col items-center gap-2 text-zinc-500 hover:bg-zinc-50 transition-colors"
                 >
                   <span className="w-12 h-12 rounded-full bg-zinc-100 flex items-center justify-center">

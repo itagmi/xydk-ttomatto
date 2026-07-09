@@ -24,7 +24,7 @@ export default function DailyCloseButton({
 }: {
   threadsConnected: boolean;
   meals: MealsData;
-  mealImages?: Record<MealType, string | null>;
+  mealImages?: Record<MealType, string[]>;
   totalCalories: number;
 }) {
   const [state, setState] = useState<State>({ step: "idle" });
@@ -116,7 +116,7 @@ export default function DailyCloseButton({
                   className="w-full bg-zinc-50 rounded-2xl p-4 text-sm text-zinc-800 leading-relaxed resize-none outline-none focus:ring-2 focus:ring-tomato/30 min-h-[120px]"
                 />
                 {mealImages && (() => {
-                  const images = Object.values(mealImages).filter((u): u is string => !!u);
+                  const images = Object.values(mealImages).flat();
                   return images.length > 0 ? (
                     <div className="mt-3">
                       <p className="text-xs text-zinc-400 mb-2">함께 올라갈 사진 ({images.length}장)</p>

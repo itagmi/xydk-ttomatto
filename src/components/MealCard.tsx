@@ -16,7 +16,7 @@ type MealItem = {
 type MealCardProps = {
   type: "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK";
   items: MealItem[];
-  imageUrl?: string | null;
+  imageUrls?: string[];
   onAdd?: () => void;
   onEdit?: () => void;
 };
@@ -28,7 +28,7 @@ const MEAL_META = {
   SNACK: { label: "간식", Icon: IconCup, iconBg: "bg-emerald-50", iconColor: "text-emerald-500" },
 } as const;
 
-export default function MealCard({ type, items = [], imageUrl, onAdd, onEdit }: MealCardProps) {
+export default function MealCard({ type, items = [], imageUrls = [], onAdd, onEdit }: MealCardProps) {
   const { label, Icon, iconBg, iconColor } = MEAL_META[type];
   const totalCalories = items.reduce((sum, item) => sum + item.calories, 0);
   const isEmpty = items.length === 0;
@@ -62,16 +62,21 @@ export default function MealCard({ type, items = [], imageUrl, onAdd, onEdit }: 
       {isEmpty ? (
         <p className="text-sm text-zinc-400 pl-1">아직 기록이 없어요</p>
       ) : (
-        <div className="flex gap-3">
-          {imageUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={imageUrl}
-              alt=""
-              className="w-16 h-16 rounded-xl object-cover shrink-0"
-            />
+        <div className="space-y-2">
+          {imageUrls.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {imageUrls.map((url, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={i}
+                  src={url}
+                  alt=""
+                  className="w-16 h-16 rounded-xl object-cover shrink-0"
+                />
+              ))}
+            </div>
           )}
-          <ul className="flex-1 space-y-1.5 pl-1">
+          <ul className="space-y-1.5 pl-1">
             {items.map((item, i) => (
               <li key={i} className="flex items-center justify-between">
                 <span className="text-sm text-zinc-600">{item.name}</span>
