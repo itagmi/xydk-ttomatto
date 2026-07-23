@@ -2,6 +2,22 @@
 
 import { useState } from "react";
 import { IconLoader2, IconBrandThreads, IconX, IconSend, IconCheck } from "@tabler/icons-react";
+import {
+  DndContext,
+  closestCenter,
+  MouseSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { generatePost, postToThreads } from "@/app/actions/threads";
 
 type MealType = "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK";
@@ -11,10 +27,29 @@ type MealsData = Record<MealType, MealItem[]>;
 type State =
   | { step: "idle" }
   | { step: "generating" }
-  | { step: "preview"; text: string }
+  | { step: "preview"; text: string; photos: string[] }
   | { step: "posting" }
-  | { step: "done" }
+  | { step: "done"; permalink?: string }
   | { step: "error"; message: string };
+
+function SortablePhoto({ url, index }: { url: string; index: number }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: url });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, touchAction: "none" }}
+      {...attributes}
+      {...listeners}
+      className={`relative shrink-0 ${isDragging ? "z-10 scale-105 shadow-lg" : ""}`}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={url} alt="" className="w-20 h-20 rounded-xl object-cover pointer-events-none" draggable={false} />
+      <span className="absolute top-1 left-1 w-5 h-5 rounded-full bg-black/60 text-white text-[10px] font-semibold flex items-center justify-center">
+        {index + 1}
+      </span>
+    </div>
+  );
+}
 
 export default function DailyCloseButton({
   threadsConnected,
@@ -33,20 +68,38 @@ export default function DailyCloseButton({
     setState({ step: "generating" });
     try {
       const text = await generatePost(meals, totalCalories);
-      setState({ step: "preview", text });
+      const photos = mealImages ? Object.values(mealImages).flat() : [];
+      setState({ step: "preview", text, photos });
     } catch (err) {
       setState({ step: "error", message: err instanceof Error ? err.message : "오류 발생" });
     }
   }
 
-  async function handlePost(text: string) {
+  async function handlePost(text: string, photos: string[]) {
     setState({ step: "posting" });
-    const result = await postToThreads(text);
+    const result = await postToThreads(text, photos);
     if (result.success) {
-      setState({ step: "done" });
+      setState({ step: "done", permalink: result.permalink });
     } else {
       setState({ step: "error", message: result.error });
     }
+  }
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } })
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setState((s) => {
+      if (s.step !== "preview") return s;
+      const from = s.photos.indexOf(String(active.id));
+      const to = s.photos.indexOf(String(over.id));
+      if (from === -1 || to === -1) return s;
+      return { ...s, photos: arrayMove(s.photos, from, to) };
+    });
   }
 
   if (!threadsConnected) {
@@ -112,23 +165,26 @@ export default function DailyCloseButton({
               <>
                 <textarea
                   value={state.text}
-                  onChange={(e) => setState({ step: "preview", text: e.target.value })}
+                  onChange={(e) => setState({ ...state, text: e.target.value })}
                   className="w-full bg-zinc-50 rounded-2xl p-4 text-sm text-zinc-800 leading-relaxed resize-none outline-none focus:ring-2 focus:ring-tomato/30 min-h-[120px]"
                 />
-                {mealImages && (() => {
-                  const images = Object.values(mealImages).flat();
-                  return images.length > 0 ? (
-                    <div className="mt-3">
-                      <p className="text-xs text-zinc-400 mb-2">함께 올라갈 사진 ({images.length}장)</p>
-                      <div className="flex gap-2 overflow-x-auto pb-1">
-                        {images.map((url, i) => (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img key={i} src={url} alt="" className="w-20 h-20 rounded-xl object-cover shrink-0" />
-                        ))}
-                      </div>
-                    </div>
-                  ) : null;
-                })()}
+                {state.photos.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-xs text-zinc-400 mb-2">
+                      함께 올라갈 사진 ({state.photos.length}장)
+                      {state.photos.length > 1 && " · 꾹 눌러서 드래그로 순서 변경"}
+                    </p>
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                      <SortableContext items={state.photos} strategy={horizontalListSortingStrategy}>
+                        <div className="flex gap-2 overflow-x-auto pb-1">
+                          {state.photos.map((url, i) => (
+                            <SortablePhoto key={url} url={url} index={i} />
+                          ))}
+                        </div>
+                      </SortableContext>
+                    </DndContext>
+                  </div>
+                )}
                 <div className="flex gap-2 mt-4">
                   <button
                     onClick={() => setState({ step: "idle" })}
@@ -137,7 +193,7 @@ export default function DailyCloseButton({
                     취소
                   </button>
                   <button
-                    onClick={() => handlePost(state.text)}
+                    onClick={() => handlePost(state.text, state.photos)}
                     className="flex-1 py-3 rounded-2xl bg-zinc-900 text-white text-sm font-semibold flex items-center justify-center gap-2"
                   >
                     <IconSend size={15} />
@@ -155,6 +211,19 @@ export default function DailyCloseButton({
             )}
           </div>
         </div>
+      )}
+
+      {/* 게시 완료 → 바로가기 */}
+      {state.step === "done" && (
+        <a
+          href={state.permalink ?? "https://www.threads.net"}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 w-full py-3 rounded-2xl border border-zinc-300 bg-white text-sm font-semibold text-zinc-800 flex items-center justify-center gap-2 hover:bg-zinc-50 transition-colors"
+        >
+          <IconBrandThreads size={16} />
+          게시물 확인하기
+        </a>
       )}
 
       {/* 에러 */}

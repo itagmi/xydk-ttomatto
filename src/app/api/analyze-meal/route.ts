@@ -55,14 +55,14 @@ export async function POST(request: NextRequest) {
           },
           {
             type: "text",
-            text: `이 음식 사진을 분석해서 음식 항목과 예상 칼로리를 알려줘. 반드시 다음 JSON 형식으로만 응답해:
+            text: `이 음식 사진을 분석해서 음식 항목, 사진에 보이는 양, 예상 칼로리를 알려줘. 반드시 다음 JSON 형식으로만 응답해:
 {
   "foods": [
-    {"name": "음식명", "calories": 숫자}
+    {"name": "음식명", "portion": "사진에 보이는 양 설명 (예: 5조각 (약 300g), 1그릇 (약 400ml))", "calories": 숫자}
   ],
   "totalCalories": 숫자
 }
-각 음식의 1인분 기준 칼로리를 추정해. 보이는 음식만 포함하고, 다른 텍스트 없이 JSON만 출력해.`,
+calories는 1인분 기준이 아니라 portion에 적은, 사진에 실제로 보이는 양 기준으로 계산해. 보이는 음식만 포함하고, 다른 텍스트 없이 JSON만 출력해.`,
           },
         ],
       },

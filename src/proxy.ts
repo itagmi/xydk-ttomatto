@@ -35,6 +35,6 @@ export const config = {
      * /auth/*, _next, 정적 파일(manifest, 아이콘 등)은 제외하고 나머지 모두 보호
      * 정적 파일이 로그인 리다이렉트에 걸리면 PWA 아이콘이 안 뜬다
      */
-    "/((?!auth|_next/static|_next/image|favicon.ico|manifest.json|apple-touch-icon.png|icon-192.png|icon-512.png|icon.svg).*)",
+    "/((?!auth|_next/static|_next/image|favicon.ico|manifest.json|apple-touch-icon.png|icon-192.png|icon-512.png|icon.svg|tomato.gif).*)",
   ],
 };

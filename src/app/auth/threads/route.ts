@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { signState } from "@/lib/threads-state";
 import { createClient } from "@/lib/supabase/server";
 
 const APP_URL = "https://ttomatto.vercel.app";
@@ -17,7 +18,8 @@ export async function GET(request: NextRequest) {
   url.searchParams.set("redirect_uri", REDIRECT_URI);
   url.searchParams.set("scope", "threads_basic,threads_content_publish");
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("state", user.id);
+  // PWA에서는 쿠키가 유실될 수 있으므로 서명된 state로도 사용자 식별
+  url.searchParams.set("state", signState(user.id));
 
   const response = NextResponse.redirect(url.toString());
   // OAuth 과정에서 세션이 끊길 수 있으므로 user id를 쿠키에 저장

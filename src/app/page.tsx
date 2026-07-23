@@ -1,12 +1,11 @@
 import { IconLogout } from "@tabler/icons-react";
 import MealSection from "@/components/MealSection";
 import DailyCloseButton from "@/components/DailyCloseButton";
+import CalorieCard from "@/components/CalorieCard";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/actions/auth";
-import { getTodayMeals } from "@/app/actions/meal";
+import { getTodayMeals, getGoalCalories } from "@/app/actions/meal";
 import { getThreadsStatus } from "@/app/actions/threads";
-
-const GOAL_CALORIES = 2000;
 
 type MealType = "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK";
 type MealItem = { name: string; calories: number };
@@ -28,9 +27,10 @@ export default async function Home() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const [diary, threadsResult] = await Promise.all([
+  const [diary, threadsResult, goalCalories] = await Promise.all([
     getTodayMeals().catch(() => null),
     getThreadsStatus().catch(() => ({ connected: false })),
+    getGoalCalories().catch(() => 2000),
   ]);
 
   const threadsConnected = threadsResult.connected;
@@ -63,9 +63,6 @@ export default async function Home() {
   const totalCalories = Object.values(meals)
     .flat()
     .reduce((sum, item) => sum + item.calories, 0);
-
-  const progressPct = Math.min((totalCalories / GOAL_CALORIES) * 100, 100);
-  const remaining = GOAL_CALORIES - totalCalories;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -103,25 +100,7 @@ export default async function Home() {
         </div>
 
         {/* 누적 칼로리 카드 */}
-        <div className="bg-tomato rounded-2xl p-5 text-white shadow-md">
-          <p className="text-sm font-medium text-white/70 mb-1">오늘 섭취 칼로리</p>
-          <div className="flex items-end gap-2 mb-4">
-            <span className="text-4xl font-bold tracking-tight">
-              {totalCalories.toLocaleString()}
-            </span>
-            <span className="text-lg font-medium text-white/80 mb-0.5">kcal</span>
-          </div>
-          <div className="bg-white/20 rounded-full h-2 overflow-hidden">
-            <div
-              className="bg-white h-full rounded-full transition-all duration-500"
-              style={{ width: `${progressPct}%` }}
-            />
-          </div>
-          <div className="flex justify-between mt-2 text-xs text-white/70">
-            <span>목표 {GOAL_CALORIES.toLocaleString()} kcal까지</span>
-            <span>{remaining > 0 ? `${remaining.toLocaleString()} kcal 남음` : "목표 달성!"}</span>
-          </div>
-        </div>
+        <CalorieCard totalCalories={totalCalories} goalCalories={goalCalories} />
 
         {/* 끼니 카드들 */}
         <MealSection meals={meals} mealImages={mealImages} />

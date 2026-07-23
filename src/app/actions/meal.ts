@@ -47,25 +47,49 @@ export async function getTodayMeals() {
   });
 }
 
+export async function getGoalCalories(): Promise<number> {
+  const dbUser = await getOrCreateDbUser();
+  return dbUser.goalCalories;
+}
+
+export async function updateGoalCalories(goal: number) {
+  const n = Math.round(goal);
+  if (!Number.isFinite(n) || n < 500 || n > 10000) {
+    throw new Error("목표 칼로리는 500~10,000 사이여야 해요");
+  }
+  const dbUser = await getOrCreateDbUser();
+  await prisma.user.update({ where: { id: dbUser.id }, data: { goalCalories: n } });
+  revalidatePath("/");
+}
+
 export async function estimateFoodCalories(
-  foodName: string,
-  quantity = 1,
-  unit = "개"
-): Promise<number> {
+  foodName: string
+): Promise<{ calories: number; portion: string | null }> {
   const response = await anthropic.messages.create({
     model: "claude-opus-4-8",
-    max_tokens: 50,
+    max_tokens: 1024,
+    thinking: { type: "adaptive" },
     messages: [
       {
         role: "user",
-        content: `"${foodName}" ${quantity}${unit}의 칼로리를 숫자만 답해줘. 단위 없이 정수만.`,
+        content: `"${foodName}"의 일반적인 1회 섭취량과 그 양 기준 칼로리를 추정해줘. 반드시 다음 JSON만 출력해:
+{"portion": "양 설명 (예: 1공기 (약 210g), 1잔 (약 355ml))", "calories": 숫자}`,
       },
     ],
   });
 
-  const text = response.content.find((b) => b.type === "text")?.text ?? "0";
-  const nums = (text.match(/\d+/g) ?? []).map(Number);
-  return nums.find((n) => n >= 10) ?? 0;
+  const text = response.content.find((b) => b.type === "text")?.text ?? "";
+  try {
+    const match = text.match(/\{[\s\S]*\}/);
+    const parsed = JSON.parse(match ? match[0] : text);
+    return {
+      calories: Math.max(0, Math.round(Number(parsed.calories)) || 0),
+      portion: typeof parsed.portion === "string" ? parsed.portion : null,
+    };
+  } catch {
+    console.error("[estimateFoodCalories] parse failed:", text.slice(0, 200));
+    return { calories: 0, portion: null };
+  }
 }
 
 export async function saveMealAnalysis(data: {

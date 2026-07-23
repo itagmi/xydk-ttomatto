@@ -22,6 +22,8 @@ model User {
   threadsAccessToken String?
   threadsTokenExpiry DateTime?
 
+  goalCalories Int @default(2000)
+
   @@index([authId])
 }
 

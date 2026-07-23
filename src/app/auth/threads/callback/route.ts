@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifyState } from "@/lib/threads-state";
 
 const APP_URL = "https://ttomatto.vercel.app";
 const REDIRECT_URI = `${APP_URL}/auth/threads/callback`;
@@ -13,10 +14,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${APP_URL}/?error=threads_auth`);
   }
 
-  // 세션 쿠키 대신 저장해둔 user id 사용
-  const authUid = request.cookies.get("threads_auth_uid")?.value;
+  // 쿠키 우선, 없으면(PWA 등에서 유실) 서명된 state로 식별
+  const authUid =
+    request.cookies.get("threads_auth_uid")?.value ??
+    verifyState(request.nextUrl.searchParams.get("state"));
   if (!authUid) {
-    console.error("[threads/callback] no threads_auth_uid cookie");
+    console.error("[threads/callback] no threads_auth_uid cookie and invalid state");
     return NextResponse.redirect(`${APP_URL}/auth/login`);
   }
 
@@ -42,14 +45,25 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${APP_URL}/?error=threads_token`);
   }
 
-  // 장기 토큰 교환 (60일)
-  const longRes = await fetch(
-    `https://graph.threads.net/access_token?grant_type=th_exchange_token&client_secret=${process.env.THREADS_APP_SECRET}&access_token=${tokenData.access_token}`
-  );
-  const longData = await longRes.json();
+  // 장기 토큰 교환 (60일) — 실패 시 1회 재시도, 그래도 실패하면 단기 토큰을 저장하지 않고 에러
+  // (단기 토큰은 1시간 뒤 만료되어 "연결 유실"처럼 보이기 때문)
+  const exchangeLong = () =>
+    fetch(
+      `https://graph.threads.net/access_token?grant_type=th_exchange_token&client_secret=${process.env.THREADS_APP_SECRET}&access_token=${tokenData.access_token}`
+    ).then((r) => r.json());
 
-  const accessToken = longData.access_token ?? tokenData.access_token;
-  const expiresIn = longData.expires_in ?? 3600;
+  let longData = await exchangeLong().catch(() => ({}));
+  if (!longData.access_token) {
+    console.error("[threads/callback] long token exchange failed, retrying:", JSON.stringify(longData));
+    longData = await exchangeLong().catch(() => ({}));
+  }
+  if (!longData.access_token) {
+    console.error("[threads/callback] long token exchange failed twice:", JSON.stringify(longData));
+    return NextResponse.redirect(`${APP_URL}/?error=threads_token`);
+  }
+
+  const accessToken = longData.access_token;
+  const expiresIn = longData.expires_in ?? 60 * 60 * 24 * 60;
   const threadsUserId = String(tokenData.user_id);
 
   await prisma.user.update({

@@ -60,7 +60,10 @@ export async function generatePost(
   return lines.join("\n");
 }
 
-export async function postToThreads(text: string): Promise<{ success: true } | { success: false; error: string }> {
+export async function postToThreads(
+  text: string,
+  orderedImageUrls?: string[]
+): Promise<{ success: true; permalink?: string } | { success: false; error: string }> {
   try {
     const dbUser = await getDbUser();
     if (!dbUser?.threadsAccessToken || !dbUser.threadsUserId) {
@@ -69,52 +72,83 @@ export async function postToThreads(text: string): Promise<{ success: true } | {
 
     // 저장된 threadsUserId가 오래됐거나 틀릴 수 있으므로 "me" 사용
     const userId = "me";
-    const token = dbUser.threadsAccessToken;
+    let token = dbUser.threadsAccessToken;
 
-    let imageUrls: string[] = [];
-    try {
-      imageUrls = await getTodayImageUrls();
-    } catch {
-      imageUrls = [];
+    // 장기 토큰(60일)은 만료 전에 갱신해야 한다. 만료 10일 전부터 자동 갱신 시도
+    const expiry = dbUser.threadsTokenExpiry;
+    if (expiry && expiry.getTime() - Date.now() < 10 * 24 * 60 * 60 * 1000) {
+      try {
+        const refreshed = await fetch(
+          `https://graph.threads.net/refresh_access_token?grant_type=th_refresh_token&access_token=${token}`
+        ).then((r) => r.json());
+        if (refreshed.access_token) {
+          token = refreshed.access_token;
+          await prisma.user.update({
+            where: { id: dbUser.id },
+            data: {
+              threadsAccessToken: refreshed.access_token,
+              threadsTokenExpiry: new Date(Date.now() + (refreshed.expires_in ?? 60 * 60 * 24 * 60) * 1000),
+            },
+          });
+        }
+      } catch {
+        // 갱신 실패해도 기존 토큰으로 시도
+      }
     }
 
+    // 클라이언트에서 정한 순서가 있으면 그대로 사용
+    let imageUrls: string[] = orderedImageUrls ?? [];
+    if (!orderedImageUrls) {
+      try {
+        imageUrls = await getTodayImageUrls();
+      } catch {
+        imageUrls = [];
+      }
+    }
+
+    // Threads는 JPEG/PNG만 지원 — gif 등은 "Invalid parameter"로 게시 전체가 실패하므로 제외
+    imageUrls = imageUrls.filter((u) => !/\.gif(\?|$)/i.test(u));
+
+    let mediaId: string;
     if (imageUrls.length === 0) {
-      await publishText(userId, token, text);
+      mediaId = await publishText(userId, token, text);
     } else if (imageUrls.length === 1) {
-      await publishSingleImage(userId, token, text, imageUrls[0]);
+      mediaId = await publishSingleImage(userId, token, text, imageUrls[0]);
     } else {
-      await publishCarousel(userId, token, text, imageUrls);
+      mediaId = await publishCarousel(userId, token, text, imageUrls);
     }
 
-    return { success: true };
+    const permalink = await getPermalink(mediaId, token);
+    return { success: true, permalink };
   } catch (err) {
     const message = err instanceof Error ? err.message : "발행 실패";
-    const needsReconnect = message.toLowerCase().includes("unsupported") ||
-      message.toLowerCase().includes("invalid") ||
-      message.toLowerCase().includes("token") ||
-      message.toLowerCase().includes("oauth");
+    // 진짜 인증 문제일 때만 재연결 안내 ("Invalid parameter" 같은 일반 오류는 제외)
+    const needsReconnect = /oauth|access token|session has expired|not authorized/i.test(message);
     return {
       success: false,
       error: needsReconnect
         ? `Threads 연결이 만료됐어요. 재연결이 필요합니다. (${message})`
-        : message,
+        : `게시 실패: ${message}`,
     };
   }
 }
 
-async function publishText(userId: string, token: string, text: string) {
+async function publishText(userId: string, token: string, text: string): Promise<string> {
   const createUrl = new URL(`https://graph.threads.net/v1.0/${userId}/threads`);
   createUrl.searchParams.set("media_type", "TEXT");
   createUrl.searchParams.set("text", text);
   createUrl.searchParams.set("access_token", token);
 
   const createData = await fetch(createUrl.toString(), { method: "POST" }).then((r) => r.json());
-  if (!createData.id) throw new Error(createData.error?.message ?? "게시물 생성 실패");
+  if (!createData.id) {
+    console.error("[threads] text container failed:", JSON.stringify(createData));
+    throw new Error(createData.error?.message ?? "게시물 생성 실패");
+  }
 
-  await publish(userId, token, createData.id);
+  return publish(userId, token, createData.id);
 }
 
-async function publishSingleImage(userId: string, token: string, text: string, imageUrl: string) {
+async function publishSingleImage(userId: string, token: string, text: string, imageUrl: string): Promise<string> {
   const createUrl = new URL(`https://graph.threads.net/v1.0/${userId}/threads`);
   createUrl.searchParams.set("media_type", "IMAGE");
   createUrl.searchParams.set("image_url", imageUrl);
@@ -122,12 +156,15 @@ async function publishSingleImage(userId: string, token: string, text: string, i
   createUrl.searchParams.set("access_token", token);
 
   const createData = await fetch(createUrl.toString(), { method: "POST" }).then((r) => r.json());
-  if (!createData.id) throw new Error(createData.error?.message ?? "이미지 게시물 생성 실패");
+  if (!createData.id) {
+    console.error("[threads] image container failed:", JSON.stringify(createData));
+    throw new Error(createData.error?.message ?? "이미지 게시물 생성 실패");
+  }
 
-  await publish(userId, token, createData.id);
+  return publish(userId, token, createData.id);
 }
 
-async function publishCarousel(userId: string, token: string, text: string, imageUrls: string[]) {
+async function publishCarousel(userId: string, token: string, text: string, imageUrls: string[]): Promise<string> {
   // 1. 캐러셀 아이템 생성
   const itemIds: string[] = [];
   for (const imageUrl of imageUrls.slice(0, 10)) { // Threads 최대 10장
@@ -139,11 +176,11 @@ async function publishCarousel(userId: string, token: string, text: string, imag
 
     const data = await fetch(url.toString(), { method: "POST" }).then((r) => r.json());
     if (data.id) itemIds.push(data.id);
+    else console.error("[threads] carousel item failed:", imageUrl, JSON.stringify(data));
   }
 
   if (itemIds.length === 0) {
-    await publishText(userId, token, text);
-    return;
+    return publishText(userId, token, text);
   }
 
   // 2. 캐러셀 컨테이너 생성
@@ -154,16 +191,48 @@ async function publishCarousel(userId: string, token: string, text: string, imag
   carouselUrl.searchParams.set("access_token", token);
 
   const carouselData = await fetch(carouselUrl.toString(), { method: "POST" }).then((r) => r.json());
-  if (!carouselData.id) throw new Error(carouselData.error?.message ?? "캐러셀 생성 실패");
+  if (!carouselData.id) {
+    console.error("[threads] carousel container failed:", JSON.stringify(carouselData));
+    throw new Error(carouselData.error?.message ?? "캐러셀 생성 실패");
+  }
 
-  await publish(userId, token, carouselData.id);
+  return publish(userId, token, carouselData.id);
 }
 
-async function publish(userId: string, token: string, creationId: string) {
+async function publish(userId: string, token: string, creationId: string): Promise<string> {
   const publishUrl = new URL(`https://graph.threads.net/v1.0/${userId}/threads_publish`);
   publishUrl.searchParams.set("creation_id", creationId);
   publishUrl.searchParams.set("access_token", token);
 
-  const publishData = await fetch(publishUrl.toString(), { method: "POST" }).then((r) => r.json());
-  if (!publishData.id) throw new Error(publishData.error?.message ?? "게시물 발행 실패");
+  // 컨테이너 생성 직후엔 Threads 내부 전파 지연으로 "미디어를 찾을 수 없음"(subcode 4279009)이
+  // 날 수 있어 잠시 기다렸다 재시도한다
+  let lastMessage = "게시물 발행 실패";
+  for (let attempt = 0; attempt < 5; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 2500));
+
+    const publishData = await fetch(publishUrl.toString(), { method: "POST" }).then((r) => r.json());
+    if (publishData.id) return publishData.id;
+
+    lastMessage = publishData.error?.message ?? lastMessage;
+    const retryable =
+      publishData.error?.code === 24 ||
+      publishData.error?.error_subcode === 4279009 ||
+      publishData.error?.is_transient === true;
+
+    console.error(`[threads] publish attempt ${attempt + 1} failed:`, JSON.stringify(publishData));
+    if (!retryable) throw new Error(lastMessage);
+  }
+  throw new Error(lastMessage);
+}
+
+async function getPermalink(mediaId: string, token: string): Promise<string | undefined> {
+  try {
+    const url = new URL(`https://graph.threads.net/v1.0/${mediaId}`);
+    url.searchParams.set("fields", "permalink");
+    url.searchParams.set("access_token", token);
+    const data = await fetch(url.toString()).then((r) => r.json());
+    return data.permalink ?? undefined;
+  } catch {
+    return undefined;
+  }
 }

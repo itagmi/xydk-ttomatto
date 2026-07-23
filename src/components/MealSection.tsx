@@ -18,16 +18,15 @@ type MealItem = { name: string; calories: number };
 type MealsData = Record<MealType, MealItem[]>;
 
 type AnalysisResult = {
-  foods: { name: string; calories: number }[];
+  foods: { name: string; portion?: string | null; calories: number }[];
   totalCalories: number;
   imageUrl?: string;
 };
 
 type EditedFood = {
   name: string;
+  portion: string | null;
   calories: number;
-  quantity: number;
-  unit: string;
   nameEdited: boolean;
   recalculating: boolean;
 };
@@ -48,15 +47,6 @@ const MEAL_LABELS: Record<MealType, string> = {
   DINNER: "저녁",
   SNACK: "간식",
 };
-
-const UNITS = ["개", "g", "ml", "컵", "큰술"];
-
-function unitStep(unit: string) {
-  return unit === "g" || unit === "ml" ? 10 : 0.5;
-}
-function unitMin(unit: string) {
-  return unit === "g" || unit === "ml" ? 10 : 0.5;
-}
 
 function FoodRows({
   edited,
@@ -99,36 +89,12 @@ function FoodRows({
             </button>
           </div>
 
-          {/* 단위 선택 */}
-          <div className="flex gap-1">
-            {UNITS.map((u) => (
-              <button
-                key={u}
-                onClick={() => onUpdate(i, { unit: u, nameEdited: true })}
-                className={`px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${
-                  food.unit === u
-                    ? "bg-tomato text-white"
-                    : "bg-white border border-zinc-200 text-zinc-500 hover:border-tomato hover:text-tomato"
-                }`}
-              >
-                {u}
-              </button>
-            ))}
-          </div>
-
-          {/* 수량 × 칼로리 */}
+          {/* AI 계량 + 칼로리 */}
           <div className="flex items-center gap-2">
-            <input
-              type="number"
-              value={food.quantity === 0 ? "" : food.quantity}
-              min={0}
-              step={unitStep(food.unit)}
-              onChange={(e) => onUpdate(i, { quantity: e.target.value === "" ? 0 : parseFloat(e.target.value) || 0 })}
-              className="w-16 text-center text-sm text-zinc-700 bg-white rounded-lg border border-zinc-200 outline-none py-0.5 focus:border-tomato"
-            />
-            <span className="text-xs text-zinc-500">{food.unit}</span>
-            <span className="text-zinc-300 text-sm">×</span>
-            <div className="flex items-center gap-1">
+            <span className="flex-1 text-xs text-zinc-400 truncate">
+              {food.portion ?? "직접 입력한 항목"}
+            </span>
+            <div className="flex items-center gap-1 shrink-0">
               <input
                 type="number"
                 value={food.calories === 0 ? "" : food.calories}
@@ -138,14 +104,6 @@ function FoodRows({
               />
               <span className="text-xs text-zinc-400">kcal</span>
             </div>
-            {food.quantity !== 1 && (
-              <>
-                <span className="text-zinc-300 text-sm">=</span>
-                <span className="text-sm font-bold text-tomato">
-                  {Math.round(food.calories * food.quantity).toLocaleString()} kcal
-                </span>
-              </>
-            )}
           </div>
         </li>
       ))}
@@ -158,8 +116,6 @@ function AddRow({
   setNewName,
   newCalories,
   setNewCalories,
-  newUnit,
-  setNewUnit,
   estimating,
   onAdd,
 }: {
@@ -167,8 +123,6 @@ function AddRow({
   setNewName: (v: string) => void;
   newCalories: string;
   setNewCalories: (v: string) => void;
-  newUnit: string;
-  setNewUnit: (v: string) => void;
   estimating: boolean;
   onAdd: () => void;
 }) {
@@ -191,30 +145,13 @@ function AddRow({
           {estimating ? <IconLoader2 size={14} className="animate-spin" /> : <IconPlus size={14} />}
         </button>
       </div>
-      <div className="flex items-center gap-2">
-        <div className="flex gap-1">
-          {UNITS.map((u) => (
-            <button
-              key={u}
-              onClick={() => setNewUnit(u)}
-              className={`px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${
-                newUnit === u
-                  ? "bg-tomato text-white"
-                  : "bg-white border border-zinc-200 text-zinc-500 hover:border-tomato hover:text-tomato"
-              }`}
-            >
-              {u}
-            </button>
-          ))}
-        </div>
-        <input
-          type="number"
-          value={newCalories}
-          onChange={(e) => setNewCalories(e.target.value)}
-          placeholder="kcal (비우면 AI 추정)"
-          className="flex-1 text-right text-xs bg-transparent outline-none border-b border-zinc-200 focus:border-tomato text-zinc-600 placeholder:text-zinc-300"
-        />
-      </div>
+      <input
+        type="number"
+        value={newCalories}
+        onChange={(e) => setNewCalories(e.target.value)}
+        placeholder="kcal (비우면 AI가 양과 칼로리를 추정해요)"
+        className="w-full text-right text-xs bg-transparent outline-none border-b border-zinc-200 focus:border-tomato text-zinc-600 placeholder:text-zinc-300"
+      />
     </div>
   );
 }
@@ -223,16 +160,14 @@ export default function MealSection({ meals, mealImages }: { meals: MealsData; m
   const [drawer, setDrawer] = useState<DrawerState>({ step: "closed" });
   const [newName, setNewName] = useState("");
   const [newCalories, setNewCalories] = useState("");
-  const [newUnit, setNewUnit] = useState("개");
   const [estimating, setEstimating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function toEdited(items: MealItem[]): EditedFood[] {
     return items.map((f) => ({
       name: f.name,
+      portion: null,
       calories: f.calories,
-      quantity: 1,
-      unit: "개",
       nameEdited: false,
       recalculating: false,
     }));
@@ -250,7 +185,6 @@ export default function MealSection({ meals, mealImages }: { meals: MealsData; m
     setDrawer({ step: "closed" });
     setNewName("");
     setNewCalories("");
-    setNewUnit("개");
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -281,9 +215,8 @@ export default function MealSection({ meals, mealImages }: { meals: MealsData; m
           ...toEdited(meals[mealType]),
           ...result.foods.map((f) => ({
             name: f.name,
+            portion: f.portion ?? null,
             calories: f.calories,
-            quantity: 1,
-            unit: "개",
             nameEdited: false,
             recalculating: false,
           })),
@@ -310,25 +243,35 @@ export default function MealSection({ meals, mealImages }: { meals: MealsData; m
   }
 
   function updateFood(i: number, patch: Partial<EditedFood>) {
-    const edited = getEdited();
-    if (!edited) return;
-    setEdited(edited.map((f, idx) => (idx === i ? { ...f, ...patch } : f)));
+    // 비동기 재계산 중에도 최신 상태 기준으로 갱신되도록 함수형 업데이트 사용
+    setDrawer((d) =>
+      d.step === "result" || d.step === "manual" || d.step === "editing"
+        ? { ...d, edited: d.edited.map((f, idx) => (idx === i ? { ...f, ...patch } : f)) }
+        : d
+    );
   }
 
   function removeFood(i: number) {
-    const edited = getEdited();
-    if (!edited) return;
-    setEdited(edited.filter((_, idx) => idx !== i));
+    setDrawer((d) =>
+      d.step === "result" || d.step === "manual" || d.step === "editing"
+        ? { ...d, edited: d.edited.filter((_, idx) => idx !== i) }
+        : d
+    );
   }
 
   async function recalculate(i: number) {
     const edited = getEdited();
     if (!edited) return;
-    const { name, quantity, unit } = edited[i];
-    updateFood(i, { recalculating: true, nameEdited: false });
+    const { name } = edited[i];
+    updateFood(i, { recalculating: true });
     try {
-      const calories = await estimateFoodCalories(name, quantity, unit);
-      updateFood(i, { calories, recalculating: false });
+      const result = await estimateFoodCalories(name);
+      if (result.calories > 0) {
+        updateFood(i, { calories: result.calories, portion: result.portion, recalculating: false, nameEdited: false });
+      } else {
+        // AI가 값을 못 주면 기존 칼로리 유지, 버튼은 남겨서 재시도 가능하게
+        updateFood(i, { recalculating: false });
+      }
     } catch {
       updateFood(i, { recalculating: false });
     }
@@ -337,20 +280,24 @@ export default function MealSection({ meals, mealImages }: { meals: MealsData; m
   async function addManualItem() {
     if (!newName.trim()) return;
     let calories = parseInt(newCalories);
+    let portion: string | null = null;
     if (!calories || isNaN(calories)) {
       setEstimating(true);
       try {
-        calories = await estimateFoodCalories(newName.trim(), 1, newUnit);
+        const result = await estimateFoodCalories(newName.trim());
+        calories = result.calories;
+        portion = result.portion;
       } catch {
         calories = 0;
       }
       setEstimating(false);
     }
-    const edited = getEdited() ?? [];
-    setEdited([
-      ...edited,
-      { name: newName.trim(), calories, quantity: 1, unit: newUnit, nameEdited: false, recalculating: false },
-    ]);
+    const newItem = { name: newName.trim(), portion, calories, nameEdited: false, recalculating: false };
+    setDrawer((d) =>
+      d.step === "result" || d.step === "manual" || d.step === "editing"
+        ? { ...d, edited: [...d.edited, newItem] }
+        : d
+    );
     setNewName("");
     setNewCalories("");
   }
@@ -363,7 +310,7 @@ export default function MealSection({ meals, mealImages }: { meals: MealsData; m
       const action = drawer.step === "editing" ? updateMealFoods : saveMealAnalysis;
       await action({
         mealType,
-        foods: edited.map((f) => ({ name: f.name, calories: f.calories, quantity: f.quantity })),
+        foods: edited.map((f) => ({ name: f.name, calories: f.calories, quantity: 1 })),
         imageUrl: drawer.step === "result" ? drawer.imageUrl : undefined,
       });
       closeDrawer();
@@ -375,7 +322,7 @@ export default function MealSection({ meals, mealImages }: { meals: MealsData; m
   const isOpen = drawer.step !== "closed";
   const activeMeal = isOpen ? drawer.mealType : null;
   const edited = getEdited() ?? [];
-  const totalKcal = edited.reduce((s, f) => s + Math.round(f.calories * f.quantity), 0);
+  const totalKcal = edited.reduce((s, f) => s + f.calories, 0);
 
   return (
     <>
@@ -451,7 +398,7 @@ export default function MealSection({ meals, mealImages }: { meals: MealsData; m
             {drawer.step === "manual" && (
               <div className="space-y-4">
                 <FoodRows edited={edited} onUpdate={updateFood} onRemove={removeFood} onRecalculate={recalculate} />
-                <AddRow newName={newName} setNewName={setNewName} newCalories={newCalories} setNewCalories={setNewCalories} newUnit={newUnit} setNewUnit={setNewUnit} estimating={estimating} onAdd={addManualItem} />
+                <AddRow newName={newName} setNewName={setNewName} newCalories={newCalories} setNewCalories={setNewCalories} estimating={estimating} onAdd={addManualItem} />
                 <div className="flex justify-between items-center px-1">
                   <span className="text-sm text-zinc-500">합계</span>
                   <span className="text-sm font-bold text-tomato">{totalKcal.toLocaleString()} kcal</span>
@@ -469,7 +416,7 @@ export default function MealSection({ meals, mealImages }: { meals: MealsData; m
             {drawer.step === "editing" && (
               <div className="space-y-4">
                 <FoodRows edited={edited} onUpdate={updateFood} onRemove={removeFood} onRecalculate={recalculate} />
-                <AddRow newName={newName} setNewName={setNewName} newCalories={newCalories} setNewCalories={setNewCalories} newUnit={newUnit} setNewUnit={setNewUnit} estimating={estimating} onAdd={addManualItem} />
+                <AddRow newName={newName} setNewName={setNewName} newCalories={newCalories} setNewCalories={setNewCalories} estimating={estimating} onAdd={addManualItem} />
                 <div className="flex justify-between items-center px-1">
                   <span className="text-sm text-zinc-500">합계</span>
                   <span className="text-sm font-bold text-tomato">{totalKcal.toLocaleString()} kcal</span>
