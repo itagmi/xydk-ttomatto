@@ -9,7 +9,6 @@ import {
   IconRefresh,
   IconPencil,
   IconPlus,
-  IconPhoto,
 } from "@tabler/icons-react";
 import MealCard from "@/components/MealCard";
 import { saveMealAnalysis, updateMealFoods, estimateFoodCalories, addMealPhoto } from "@/app/actions/meal";
@@ -164,6 +163,7 @@ export default function MealSection({ meals, mealImages }: { meals: MealsData; m
   const [estimating, setEstimating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const photoOnlyInputRef = useRef<HTMLInputElement>(null);
+  const photoOnlyMealRef = useRef<MealType | null>(null);
 
   function toEdited(items: MealItem[]): EditedFood[] {
     return items.map((f) => ({
@@ -191,11 +191,15 @@ export default function MealSection({ meals, mealImages }: { meals: MealsData; m
     if (photoOnlyInputRef.current) photoOnlyInputRef.current.value = "";
   }
 
+  function openPhotoOnly(mealType: MealType) {
+    photoOnlyMealRef.current = mealType;
+    photoOnlyInputRef.current?.click();
+  }
+
   async function handlePhotoOnlyChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file || drawer.step !== "pick") return;
-
-    const mealType = drawer.mealType;
+    const mealType = photoOnlyMealRef.current;
+    if (!file || !mealType) return;
     setDrawer({ step: "saving", mealType });
     try {
       const formData = new FormData();
@@ -355,6 +359,7 @@ export default function MealSection({ meals, mealImages }: { meals: MealsData; m
             imageUrls={mealImages?.[type]}
             onAdd={() => openDrawer(type)}
             onEdit={() => openEdit(type)}
+            onPhotoOnly={() => openPhotoOnly(type)}
           />
         ))}
       </section>
@@ -399,14 +404,6 @@ export default function MealSection({ meals, mealImages }: { meals: MealsData; m
                   </span>
                   <span className="text-sm font-medium">직접 입력</span>
                   <span className="text-xs text-zinc-400">음식 이름으로 검색</span>
-                </button>
-                <button
-                  onClick={() => photoOnlyInputRef.current?.click()}
-                  className="w-full border-2 border-dashed border-zinc-200 rounded-2xl py-4 flex items-center justify-center gap-2 text-zinc-500 hover:bg-zinc-50 transition-colors"
-                >
-                  <IconPhoto size={18} />
-                  <span className="text-sm font-medium">사진만 추가</span>
-                  <span className="text-xs text-zinc-400">칼로리 계산 없이</span>
                 </button>
               </div>
             )}
