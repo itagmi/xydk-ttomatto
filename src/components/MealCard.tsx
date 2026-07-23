@@ -59,23 +59,23 @@ export default function MealCard({ type, items = [], imageUrls = [], onAdd, onEd
         </div>
       </div>
 
-      {isEmpty ? (
-        <p className="text-sm text-zinc-400 pl-1">아직 기록이 없어요</p>
-      ) : (
-        <div className="space-y-2">
-          {imageUrls.length > 0 && (
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {imageUrls.map((url, i) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  key={i}
-                  src={url}
-                  alt=""
-                  className="w-16 h-16 rounded-xl object-cover shrink-0"
-                />
-              ))}
-            </div>
-          )}
+      <div className="space-y-2">
+        {imageUrls.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {imageUrls.map((url, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={i}
+                src={url}
+                alt=""
+                className="w-16 h-16 rounded-xl object-cover shrink-0"
+              />
+            ))}
+          </div>
+        )}
+        {isEmpty ? (
+          imageUrls.length === 0 && <p className="text-sm text-zinc-400 pl-1">아직 기록이 없어요</p>
+        ) : (
           <ul className="space-y-1.5 pl-1">
             {items.map((item, i) => (
               <li key={i} className="flex items-center justify-between">
@@ -84,8 +84,8 @@ export default function MealCard({ type, items = [], imageUrls = [], onAdd, onEd
               </li>
             ))}
           </ul>
-        </div>
-      )}
+        )}
+      </div>
 
       <button
         onClick={onAdd}

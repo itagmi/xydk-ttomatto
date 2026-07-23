@@ -9,9 +9,10 @@ import {
   IconRefresh,
   IconPencil,
   IconPlus,
+  IconPhoto,
 } from "@tabler/icons-react";
 import MealCard from "@/components/MealCard";
-import { saveMealAnalysis, updateMealFoods, estimateFoodCalories } from "@/app/actions/meal";
+import { saveMealAnalysis, updateMealFoods, estimateFoodCalories, addMealPhoto } from "@/app/actions/meal";
 
 type MealType = "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK";
 type MealItem = { name: string; calories: number };
@@ -162,6 +163,7 @@ export default function MealSection({ meals, mealImages }: { meals: MealsData; m
   const [newCalories, setNewCalories] = useState("");
   const [estimating, setEstimating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const photoOnlyInputRef = useRef<HTMLInputElement>(null);
 
   function toEdited(items: MealItem[]): EditedFood[] {
     return items.map((f) => ({
@@ -186,6 +188,23 @@ export default function MealSection({ meals, mealImages }: { meals: MealsData; m
     setNewName("");
     setNewCalories("");
     if (fileInputRef.current) fileInputRef.current.value = "";
+    if (photoOnlyInputRef.current) photoOnlyInputRef.current.value = "";
+  }
+
+  async function handlePhotoOnlyChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || drawer.step !== "pick") return;
+
+    const mealType = drawer.mealType;
+    setDrawer({ step: "saving", mealType });
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      await addMealPhoto(mealType, formData);
+      closeDrawer();
+    } catch {
+      setDrawer({ step: "error", mealType, message: "사진 업로드에 실패했어요" });
+    }
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -341,6 +360,7 @@ export default function MealSection({ meals, mealImages }: { meals: MealsData; m
       </section>
 
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+      <input ref={photoOnlyInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoOnlyChange} />
 
       {isOpen && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end">
@@ -379,6 +399,14 @@ export default function MealSection({ meals, mealImages }: { meals: MealsData; m
                   </span>
                   <span className="text-sm font-medium">직접 입력</span>
                   <span className="text-xs text-zinc-400">음식 이름으로 검색</span>
+                </button>
+                <button
+                  onClick={() => photoOnlyInputRef.current?.click()}
+                  className="w-full border-2 border-dashed border-zinc-200 rounded-2xl py-4 flex items-center justify-center gap-2 text-zinc-500 hover:bg-zinc-50 transition-colors"
+                >
+                  <IconPhoto size={18} />
+                  <span className="text-sm font-medium">사진만 추가</span>
+                  <span className="text-xs text-zinc-400">칼로리 계산 없이</span>
                 </button>
               </div>
             )}

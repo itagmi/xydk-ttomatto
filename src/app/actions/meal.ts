@@ -1,6 +1,7 @@
 "use server";
 
 import Anthropic from "@anthropic-ai/sdk";
+import { put } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -136,6 +137,36 @@ export async function saveMealAnalysis(data: {
       data: { mealId: meal.id, foodId: food.id, amount: item.quantity },
     });
   }
+
+  revalidatePath("/");
+}
+
+export async function addMealPhoto(mealType: MealType, formData: FormData) {
+  const file = formData.get("image") as File | null;
+  if (!file) throw new Error("이미지가 없습니다");
+
+  const dbUser = await getOrCreateDbUser();
+  const bytes = await file.arrayBuffer();
+  const mediaType = file.type?.startsWith("image/") ? file.type : "image/jpeg";
+  const ext = mediaType.split("/")[1] ?? "jpg";
+
+  const blob = await put(`meals/${dbUser.authId}/${Date.now()}.${ext}`, Buffer.from(bytes), {
+    access: "public",
+    contentType: mediaType,
+  });
+
+  const today = todayUtcMidnight();
+  const diary = await prisma.diaryEntry.upsert({
+    where: { userId_date: { userId: dbUser.id, date: today } },
+    update: {},
+    create: { userId: dbUser.id, date: today },
+  });
+
+  await prisma.meal.upsert({
+    where: { diaryEntryId_mealType: { diaryEntryId: diary.id, mealType } },
+    update: { imageUrls: { push: blob.url } },
+    create: { diaryEntryId: diary.id, mealType, imageUrls: [blob.url] },
+  });
 
   revalidatePath("/");
 }
