@@ -9,6 +9,7 @@ import {
   IconRefresh,
   IconPencil,
   IconPlus,
+  IconGripVertical,
 } from "@tabler/icons-react";
 import MealCard from "@/components/MealCard";
 import { saveMealAnalysis, updateMealFoods, estimateFoodCalories, addMealPhoto } from "@/app/actions/meal";
@@ -53,18 +54,69 @@ function FoodRows({
   onUpdate,
   onRemove,
   onRecalculate,
+  onMerge,
 }: {
   edited: EditedFood[];
   onUpdate: (i: number, patch: Partial<EditedFood>) => void;
   onRemove: (i: number) => void;
   onRecalculate: (i: number) => void;
+  onMerge: (from: number, to: number) => void;
 }) {
+  const listRef = useRef<HTMLUListElement>(null);
+  const startYRef = useRef(0);
+  const [drag, setDrag] = useState<{ from: number; over: number | null; dy: number } | null>(null);
+
+  // iOS에서는 HTML5 drag&drop이 동작하지 않아 포인터 이벤트로 직접 처리
+  function handleDragStart(e: React.PointerEvent, i: number) {
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    startYRef.current = e.clientY;
+    setDrag({ from: i, over: null, dy: 0 });
+  }
+
+  function handleDragMove(e: React.PointerEvent) {
+    if (!drag) return;
+    let over: number | null = null;
+    listRef.current?.querySelectorAll("li").forEach((li, idx) => {
+      if (idx === drag.from) return;
+      const r = li.getBoundingClientRect();
+      if (e.clientY >= r.top && e.clientY <= r.bottom) over = idx;
+    });
+    setDrag({ from: drag.from, over, dy: e.clientY - startYRef.current });
+  }
+
+  function handleDragEnd() {
+    if (drag && drag.over !== null && drag.over !== drag.from) onMerge(drag.from, drag.over);
+    setDrag(null);
+  }
+
   return (
-    <ul className="space-y-2">
+    <ul ref={listRef} className="space-y-2">
       {edited.map((food, i) => (
-        <li key={i} className="bg-zinc-50 rounded-xl px-3 py-3 space-y-2">
+        <li
+          key={i}
+          className={`bg-zinc-50 rounded-xl px-3 py-3 space-y-2 ${
+            drag?.from === i
+              ? "relative z-10 opacity-70 shadow-lg"
+              : drag?.over === i
+                ? "ring-2 ring-tomato bg-tomato-light"
+                : ""
+          }`}
+          style={drag?.from === i ? { transform: `translateY(${drag.dy}px)` } : undefined}
+        >
           {/* 이름 행 */}
           <div className="flex items-center gap-2">
+            <button
+              onPointerDown={(e) => handleDragStart(e, i)}
+              onPointerMove={handleDragMove}
+              onPointerUp={handleDragEnd}
+              onPointerCancel={handleDragEnd}
+              className="text-zinc-300 shrink-0 cursor-grab active:cursor-grabbing -ml-1"
+              style={{ touchAction: "none" }}
+              aria-label="드래그해서 다른 항목과 합치기"
+            >
+              <IconGripVertical size={15} />
+            </button>
             <input
               type="text"
               value={food.name}
@@ -90,7 +142,7 @@ function FoodRows({
           </div>
 
           {/* AI 계량 + 칼로리 */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 pl-5">
             <span className="flex-1 text-xs text-zinc-400 truncate">
               {food.portion ?? "직접 입력한 항목"}
             </span>
@@ -274,6 +326,26 @@ export default function MealSection({ meals, mealImages }: { meals: MealsData; m
     );
   }
 
+  function mergeFood(from: number, to: number) {
+    setDrawer((d) => {
+      if (d.step !== "result" && d.step !== "manual" && d.step !== "editing") return d;
+      const src = d.edited[from];
+      const dst = d.edited[to];
+      if (!src || !dst || from === to) return d;
+      const merged: EditedFood = {
+        name: `${dst.name} + ${src.name}`,
+        portion: [dst.portion, src.portion].filter(Boolean).join(" + ") || null,
+        calories: dst.calories + src.calories,
+        nameEdited: false,
+        recalculating: false,
+      };
+      return {
+        ...d,
+        edited: d.edited.map((f, i) => (i === to ? merged : f)).filter((_, i) => i !== from),
+      };
+    });
+  }
+
   function removeFood(i: number) {
     setDrawer((d) =>
       d.step === "result" || d.step === "manual" || d.step === "editing"
@@ -422,7 +494,7 @@ export default function MealSection({ meals, mealImages }: { meals: MealsData; m
             {/* manual */}
             {drawer.step === "manual" && (
               <div className="space-y-4">
-                <FoodRows edited={edited} onUpdate={updateFood} onRemove={removeFood} onRecalculate={recalculate} />
+                <FoodRows edited={edited} onUpdate={updateFood} onRemove={removeFood} onRecalculate={recalculate} onMerge={mergeFood} />
                 <AddRow newName={newName} setNewName={setNewName} newCalories={newCalories} setNewCalories={setNewCalories} estimating={estimating} onAdd={addManualItem} />
                 <div className="flex justify-between items-center px-1">
                   <span className="text-sm text-zinc-500">합계</span>
@@ -440,7 +512,7 @@ export default function MealSection({ meals, mealImages }: { meals: MealsData; m
             {/* editing */}
             {drawer.step === "editing" && (
               <div className="space-y-4">
-                <FoodRows edited={edited} onUpdate={updateFood} onRemove={removeFood} onRecalculate={recalculate} />
+                <FoodRows edited={edited} onUpdate={updateFood} onRemove={removeFood} onRecalculate={recalculate} onMerge={mergeFood} />
                 <AddRow newName={newName} setNewName={setNewName} newCalories={newCalories} setNewCalories={setNewCalories} estimating={estimating} onAdd={addManualItem} />
                 <div className="flex justify-between items-center px-1">
                   <span className="text-sm text-zinc-500">합계</span>
@@ -461,7 +533,7 @@ export default function MealSection({ meals, mealImages }: { meals: MealsData; m
                 <img src={drawer.preview} alt="" className="w-full max-h-44 object-cover rounded-2xl" />
                 <div>
                   <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-2">분석 결과</p>
-                  <FoodRows edited={edited} onUpdate={updateFood} onRemove={removeFood} onRecalculate={recalculate} />
+                  <FoodRows edited={edited} onUpdate={updateFood} onRemove={removeFood} onRecalculate={recalculate} onMerge={mergeFood} />
                   <div className="flex justify-between items-center mt-3 px-1">
                     <span className="text-sm text-zinc-500">합계</span>
                     <span className="text-sm font-bold text-tomato">{totalKcal.toLocaleString()} kcal</span>
